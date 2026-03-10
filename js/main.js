@@ -2175,8 +2175,15 @@ function reportError(e) {
                             ctx.beginPath(); ctx.moveTo(cx, this.y + 40); ctx.lineTo(cx + 10, this.y + 60); ctx.stroke();
                             // 頭
                             ctx.beginPath(); ctx.arc(cx, this.y + 10, 8, 0, Math.PI * 2); ctx.stroke();
-                            // 腕
-                            ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? 15 : -15), this.y + 30); ctx.stroke();
+                            // 腕（GRAB_ATTEMPTなら前に伸ばす）
+                            if (this.actionState === 'GRAB_ATTEMPT') {
+                                var gp = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
+                                var al = Math.round(10 + gp * 35);
+                                ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? al : -al), this.y + 22); ctx.stroke();
+                                ctx.beginPath(); ctx.arc(cx + (this.facingRight ? al : -al), this.y + 22, 5, 0, Math.PI * 2); ctx.stroke();
+                            } else {
+                                ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? 15 : -15), this.y + 30); ctx.stroke();
+                            }
                             // 手持ち鏡
                             var mirrorColor = this.mirrorCooldown > 0 ? '#555' : '#81ecec';
                             var mirrorGlowColor = this.mirrorCooldown > 0 ? '#333' : 'rgba(255,255,255,0.6)';
