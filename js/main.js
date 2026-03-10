@@ -1863,7 +1863,22 @@ function reportError(e) {
                                 ctx.beginPath(); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx-10, this.y+60); ctx.stroke(); 
                                 ctx.beginPath(); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx+10, this.y+60); ctx.stroke(); 
                                 ctx.beginPath(); ctx.arc(cx, this.y+10, 8, 0, Math.PI*2); ctx.stroke(); 
-                                                    ctx.beginPath(); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?15:-15), this.y+30); ctx.stroke();
+                                if (this.actionState === 'GRAB_ATTEMPT') {
+                                    var gp = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
+                                    var al = Math.round(10 + gp * 35);
+                                    ctx.beginPath(); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?al:-al), this.y+22); ctx.stroke();
+                                    ctx.beginPath(); ctx.arc(cx+(this.facingRight?al:-al), this.y+22, 5, 0, Math.PI*2); ctx.stroke();
+                                } else {
+                                    ctx.beginPath(); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?15:-15), this.y+30); ctx.stroke();
+                                }
+                            }
+                            // GRAB_ATTEMPT MOTION FOR SPEAR
+                            if (this.actionState === 'GRAB_ATTEMPT') {
+                                var grabProgress = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
+                                var armLen = Math.round(10 + grabProgress * 35);
+                                ctx.beginPath(); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?armLen:-armLen), this.y+22); ctx.stroke();
+                                ctx.beginPath(); ctx.arc(cx+(this.facingRight?armLen:-armLen), this.y+22, 5, 0, Math.PI*2); ctx.stroke();
+                                drawn = true;
                             }
                             // CHARGE MOTION FOR SPEAR
                             if (this.actionState === 'CHARGE') { 
@@ -1963,6 +1978,14 @@ function reportError(e) {
                             
                             if (this.actionState === 'SHIELD') { ctx.save(); ctx.fillStyle = `rgba(116, 185, 255, ${this.shieldHP/150})`; ctx.strokeStyle = "#0984e3"; ctx.beginPath(); ctx.arc(cx, this.y + 30, 45, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore(); } 
                             
+                            // GRAB_ATTEMPT MOTION FOR HAMMER
+                            if (this.actionState === 'GRAB_ATTEMPT') {
+                                var grabProgress = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
+                                var armLen = Math.round(10 + grabProgress * 35);
+                                ctx.beginPath(); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?armLen:-armLen), this.y+22); ctx.stroke();
+                                ctx.beginPath(); ctx.arc(cx+(this.facingRight?armLen:-armLen), this.y+22, 5, 0, Math.PI*2); ctx.stroke();
+                                drawn = true;
+                            }
                             // HAMMER CHARGE MOTION (UNIFIED)
                             if (!drawn && this.actionState === 'CHARGE') {
                                 ctx.save();
