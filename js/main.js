@@ -811,8 +811,8 @@ function reportError(e) {
                     var atkScale = (data.scale !== undefined) ? data.scale : 0.1;
                     var kbMult = window.SMA.CHAR_DATA[vic.charId].kbMult || 1.0;
                     
-                    // DEFAULT KB (Mirror Clone Boost: 3.0x)
-                    var kbValue = data.kb * 3.0;
+                    // DEFAULT KB
+                    var kbValue = data.kb;
                     
                     // TORNADO FINISHER LOGIC (Dynamic KB override)
                     if ((atk.currentAttackType === 'DOWN' || atk.currentAttackType === 'AIR_DOWN') && atk.charId === 'hammer') {
@@ -906,12 +906,12 @@ function reportError(e) {
                     if (vic.shieldHP <= 0) { vic.shieldHP = 0; vic.enterState('STUN', 120); }
                     return;
                 }
-                // ダメージ0.5倍、吹っ飛ばし3.0倍（強化）
+                // ダメージ0.5倍、吹っ飛ばしはユーザー設定通りの2.0倍
                 if (data.dmg) vic.percent += data.dmg * p * 0.5;
                 var atkScale = (data.scale !== undefined) ? data.scale : 0.1;
                 var kbMult = window.SMA.CHAR_DATA[vic.charId].kbMult || 1.0;
                 var kbValue = data.kb * 2.0;
-                var kb = (kbValue * p + (Math.pow(vic.percent, 1.2) * atkScale * p)) * kbMult;
+                var kb = (kbValue * p + (Math.pow(vic.percent, 1.2) * atkScale * p * 0.5)) * kbMult;
                 var r = data.angle * (Math.PI / 180);
                 // 鏡像の向きで吹っ飛ばし方向を決定
                 var cloneFR = atk.mirrorClone.facingRight;
