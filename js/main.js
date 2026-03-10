@@ -1127,6 +1127,32 @@ function reportError(e) {
             if (this.actionState === 'LEDGE_ROLL') { this.stateTimer--; var rollSpeed = 5; this.vx = this.facingRight ? rollSpeed : -rollSpeed; this.rotation += 0.5; if (this.stateTimer <= 0) { this.vx = 0; this.actionState = 'IDLE'; this.rotation = 0; } this.x += this.vx; return; }
             switch(this.actionState) {
                 case 'LAG': this.stateTimer--; if(this.stateTimer <= 0) this.actionState = 'IDLE'; this.vx *= S.FRICTION; this.applyPhysics(); break;
+                case 'GRAB_ATTEMPT': {
+                    this.stateTimer++;
+                    this.vx *= 0.6;
+                    this.applyPhysics();
+                    // 7フレーム目（腕が最大に伸びた時点）で当たり判定
+                    if (this.stateTimer === 7) {
+                        var opp = this.grabTarget;
+                        if (opp) {
+                            var dist = Math.sqrt(Math.pow(opp.x - this.x, 2) + Math.pow(opp.y - this.y, 2));
+                            var isForward = this.facingRight ? (opp.x + opp.w/2 > this.x + this.w/2 - 10) : (opp.x + opp.w/2 < this.x + this.w/2 + 10);
+                            if (dist < 65 && isForward && opp.invincible === 0 && opp.grabInvincible <= 0 && opp.actionState !== 'DEAD' && opp.actionState !== 'RESPAWN' && opp.actionState !== 'DODGE') {
+                                // つかみ成功
+                                this.actionState = 'GRABBING'; this.grabbedTarget = opp; this.stateTimer = 120;
+                                opp.chargePower = 1.0; opp.actionState = 'GRABBED'; opp.isShielding = false;
+                                window.SMA.createParticles(opp.x + 15, opp.y + 30, 5, '#a29bfe');
+                                this.grabTarget = null;
+                            }
+                        }
+                    }
+                    // 15フレームでモーション終了 → つかめていなければLAG
+                    if (this.stateTimer >= 15 && this.actionState === 'GRAB_ATTEMPT') {
+                        this.grabTarget = null;
+                        this.enterState('LAG', 18);
+                    }
+                    break;
+                }
                 case 'ATTACK': if (!this.isGrounded) { var moveSpd = S.SPEED * 0.5; if(this.charId==='mage') moveSpd *= 0.9; if(this.charId==='brawler') moveSpd *= 1.4; if(this.charId==='spear') moveSpd *= 0.9; if(this.charId==='hammer') moveSpd *= 0.7; if(this.charId==='mirror') moveSpd *= 1.1; if (inputKeys.left) this.vx -= moveSpd; if (inputKeys.right) this.vx += moveSpd; if (this.vx > 5) this.vx = 5; if (this.vx < -5) this.vx = -5; } if (this.currentAttack && (this.currentAttack.type === 'meteor' || this.currentAttack.type === 'beam' || this.currentAttack.type === 'dive' || this.currentAttack.type === 'axe' || this.currentAttack.type === 'stall_fall' || this.currentAttack.type === 'up_rush' || this.currentAttack.type === 'ground_shock')) { this.handleAttackFrame(); this.applyPhysics(); } else if (this.currentAttack && (this.currentAttack.type === 'slide' || this.currentAttack.type === 'lunge' || this.currentAttack.type === 'spin_hammer' || this.currentAttack.type === 'hammer_spin_air' || this.currentAttack.type === 'tornado')) { this.handleAttackFrame(); this.vx *= 0.95; this.vy += S.GRAVITY; this.checkPlatforms(inputKeys); this.x += this.vx; this.y += this.vy; if (this.y > 2000) this.checkBounds(); } else { this.handleAttackFrame(); this.applyPhysics(); } break;
                 case 'CHARGE': 
                     if (inputKeys.left) this.facingRight = false;
@@ -1191,14 +1217,11 @@ function reportError(e) {
         window.SMA.Fighter.prototype.tryGrab = function(opponent) { 
             var S=window.SMA; 
             if(this.actionState !== 'IDLE' || !this.isGrounded) return; 
-            var dist = Math.sqrt(Math.pow(opponent.x - this.x, 2) + Math.pow(opponent.y - this.y, 2)); 
-            // 前方判定の追加: 相手の中心が自分の中心より前方（または密着猶予10px以内）にあるか
-            var isForward = this.facingRight ? (opponent.x + opponent.w/2 > this.x + this.w/2 - 10) : (opponent.x + opponent.w/2 < this.x + this.w/2 + 10);
-            if (dist < 60 && isForward && opponent.invincible === 0 && opponent.grabInvincible <= 0 && opponent.actionState !== 'DEAD' && opponent.actionState !== 'RESPAWN') { 
-                this.actionState = 'GRABBING'; this.grabbedTarget = opponent; this.stateTimer = 120; opponent.chargePower = 1.0; opponent.actionState = 'GRABBED'; opponent.isShielding = false; S.createParticles(opponent.x + 15, opponent.y + 30, 5, '#a29bfe'); 
-            } else { 
-                this.enterState('LAG', 20); 
-            } 
+            // つかみ試みモーションを開始（15フレーム）
+            this.actionState = 'GRAB_ATTEMPT';
+            this.stateTimer = 0;
+            this.grabTarget = opponent; // モーション終了後に判定するため保持
+            this.vx *= 0.3;
         };
         window.SMA.Fighter.prototype.handleGrabbing = function(inputKeys) { if (!this.grabbedTarget) { this.actionState = 'IDLE'; return; } this.grabbedTarget.x = this.x + (this.facingRight ? 25 : -25); this.grabbedTarget.y = this.y - 5; this.stateTimer--; if (this.stateTimer > 108) return; var throwType = null; if (inputKeys.left) throwType = this.facingRight ? 'THROW_BK' : 'THROW_FW'; else if (inputKeys.right) throwType = this.facingRight ? 'THROW_FW' : 'THROW_BK'; else if (inputKeys.up) throwType = 'THROW_UP'; else if (inputKeys.down) throwType = 'THROW_DN'; else if (this.stateTimer <= 0) throwType = 'THROW_FW'; if (throwType) this.performThrow(throwType); };
         window.SMA.Fighter.prototype.performThrow = function(typeStr) { var S=window.SMA; var vic = this.grabbedTarget; if (!vic) return; this.actionState = 'THROWING'; this.stateTimer = 15; var data = S.CHAR_DATA[this.charId].throws[typeStr]; vic.percent += data.dmg; var rad = data.angle * (Math.PI/180); var force = data.kb + (vic.percent * data.scale); var vx = Math.cos(rad) * force; var vy = Math.sin(rad) * force; if (!this.facingRight) vx *= -1; vic.vx = vx; vic.vy = vy; vic.enterState('STUN', 40); vic.grabInvincible = 60; vic.chargePower = 1.0; this.grabbedTarget = null; S.createParticles(vic.x+15, vic.y+30, 15, '#fff'); S.shake = 10; S.updateHud(); S.playSound('hit'); };
@@ -2247,6 +2270,13 @@ function reportError(e) {
                                     var pullProgress = this.actionState === 'GRABBING' ? Math.max(0, (120 - this.stateTimer) / 30) : 1.0;
                                     var armLen = Math.round(40 - pullProgress * 15); // 引き寄せるほど腕が縮む
                                     ctx.beginPath(); ctx.moveTo(cx, this.y+10); ctx.lineTo(cx, this.y+40); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx-10, this.y+60); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx+10, this.y+60); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?armLen:-armLen), this.y+25); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, this.y+10, 10, 0, Math.PI*2); ctx.stroke();
+                                } else if (this.actionState === 'GRAB_ATTEMPT') {
+                                    // つかみ試みモーション: stateTimer 0→7で伸びる, 7→15で縮む
+                                    var grabProgress = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
+                                    var armLen = Math.round(10 + grabProgress * 35); // 10px～45px
+                                    ctx.beginPath(); ctx.moveTo(cx, this.y+10); ctx.lineTo(cx, this.y+40); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx-10, this.y+60); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx+10, this.y+60); ctx.moveTo(cx, this.y+22); ctx.lineTo(cx+(this.facingRight?armLen:-armLen), this.y+22); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, this.y+10, 10, 0, Math.PI*2); ctx.stroke();
+                                    // 手（グー）を先端に描く
+                                    ctx.beginPath(); ctx.arc(cx+(this.facingRight?armLen:-armLen), this.y+22, 5, 0, Math.PI*2); ctx.stroke();
                                 } else {
                                     ctx.beginPath(); ctx.moveTo(cx, this.y+10); ctx.lineTo(cx, this.y+40); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx-10, this.y+60); ctx.moveTo(cx, this.y+40); ctx.lineTo(cx+10, this.y+60); ctx.moveTo(cx, this.y+20); ctx.lineTo(cx+(this.facingRight?15:-15), this.y+30); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, this.y+10, 10, 0, Math.PI*2); ctx.stroke(); 
                                 }
