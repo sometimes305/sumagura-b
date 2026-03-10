@@ -11,8 +11,8 @@ function reportError(e) {
 
         // 1. GLOBAL NAMESPACE
         window.SMA = {};
-        window.SMA.ID_PREFIX = "sumagura_v422_"; 
-        window.SMA.VERSION = "v422";
+        window.SMA.ID_PREFIX = "sumagura_v423_"; 
+        window.SMA.VERSION = "v423";
         window.SMA.GRAVITY = 0.40; window.SMA.MAX_FALL_SPEED = 9.0;
         window.SMA.FRICTION = 0.82; window.SMA.KB_FRICTION = 0.95;
         window.SMA.SPEED = 1.1; window.SMA.JUMP_FORCE = -10.0;
