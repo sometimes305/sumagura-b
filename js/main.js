@@ -1022,9 +1022,8 @@ function reportError(e) {
 
                                 if (atkType === 'mirror_spin' || fighter.currentAttackType === 'AIR_NEUTRAL') {
                                     var spinAngle = forwardP * Math.PI * 2;
-                                    if (!fr) spinAngle = -spinAngle;
                                     var r = 40;
-                                    mirX = cx + Math.cos(spinAngle) * r;
+                                    mirX = cx + (fr ? 1 : -1) * Math.cos(spinAngle) * r;
                                     mirY = cY + 25 + Math.sin(spinAngle) * r;
                                     mirAngle = 0;
                                 } else if (atkType === 'mirror_throw_up' || fighter.currentAttackType === 'UP' || fighter.currentAttackType === 'AIR_UP') {
@@ -2625,9 +2624,8 @@ function reportError(e) {
                                     if (this.currentAttack.type === 'mirror_spin' || this.currentAttackType === 'AIR_NEUTRAL') {
                                         // 空中NA: キャラの周りを一周
                                         var spinAngle = forwardP * Math.PI * 2;
-                                        if (!this.facingRight) spinAngle = -spinAngle;
                                         var r = 40;
-                                        mirX = cx + Math.cos(spinAngle) * r;
+                                        mirX = cx + (this.facingRight ? 1 : -1) * Math.cos(spinAngle) * r;
                                         mirY = this.y + 25 + Math.sin(spinAngle) * r;
                                         mirAngle = 0; // 鏡の向きは一定
                                     } else if (this.currentAttack.type === 'mirror_throw_up' || this.currentAttackType === 'UP' || this.currentAttackType === 'AIR_UP') {
