@@ -11,8 +11,8 @@ function reportError(e) {
 
         // 1. GLOBAL NAMESPACE
         window.SMA = {};
-        window.SMA.ID_PREFIX = "sumagura_v426_"; 
-        window.SMA.VERSION = "v426";
+        window.SMA.ID_PREFIX = "sumagura_v427_"; 
+        window.SMA.VERSION = "v427";
         window.SMA.GRAVITY = 0.40; window.SMA.MAX_FALL_SPEED = 9.0;
         window.SMA.FRICTION = 0.82; window.SMA.KB_FRICTION = 0.95;
         window.SMA.SPEED = 1.1; window.SMA.JUMP_FORCE = -10.0;
@@ -2046,7 +2046,25 @@ function reportError(e) {
                             this.hitbox.y = this.y - 70; 
                         } else { this.hitbox.active = false; }
                         return;
-                    } else { this.hitbox.w = 80 * scale; this.hitbox.h = 80 * scale; this.hitbox.x = this.x + (this.facingRight ? -10 : -40); this.hitbox.y = this.y - 40; } } else if (this.currentAttackType === 'SIDE') { this.hitbox.w = 80 * scale; this.hitbox.h = 70 * scale; this.hitbox.x = this.x + (this.facingRight ? 20 : -20 - this.hitbox.w) + this.w/2; this.hitbox.y = this.y - 10; } else if (this.currentAttackType === 'NEUTRAL') { this.hitbox.w = 60 * scale; this.hitbox.h = 30 * scale; this.hitbox.x = this.x + (this.facingRight ? 25 : -25 - this.hitbox.w) + this.w/2; this.hitbox.y = this.y + 25; } else if ((this.currentAttackType === 'DOWN' || this.currentAttackType === 'AIR_DOWN') && this.charId === 'mage') { if(this.charId === 'mage') { } else { this.hitbox.w = 80 * scale; this.hitbox.h = 30 * scale; this.hitbox.x = this.x + (this.facingRight ? -10 : -40); this.hitbox.y = this.y + 40; } } else if(this.currentAttackType === 'NEUTRAL' && this.charId === 'brawler') { this.hitbox.w = 40; this.hitbox.h = 30; this.hitbox.x = this.x + (this.facingRight ? 25 : -65); this.hitbox.y = this.y + 25; } else if (this.charId === 'hammer' && this.currentAttackType === 'NEUTRAL') {
+                    } else { this.hitbox.w = 80 * scale; this.hitbox.h = 80 * scale; this.hitbox.x = this.x + (this.facingRight ? -10 : -40); this.hitbox.y = this.y - 40; } } else if (this.currentAttackType === 'SIDE') { 
+                        this.hitbox.w = 80 * scale; this.hitbox.h = 70 * scale; 
+                        if (this.charId === 'sword') {
+                            this.hitbox.w = 95 * scale;
+                            this.hitbox.x = this.x + (this.facingRight ? 5 : -5 - this.hitbox.w) + this.w/2;
+                        } else {
+                            this.hitbox.x = this.x + (this.facingRight ? 20 : -20 - this.hitbox.w) + this.w/2; 
+                        }
+                        this.hitbox.y = this.y - 10; 
+                    } else if (this.currentAttackType === 'NEUTRAL') { 
+                        this.hitbox.w = 60 * scale; this.hitbox.h = 30 * scale; 
+                        if (this.charId === 'sword') {
+                            this.hitbox.w = 80 * scale;
+                            this.hitbox.x = this.x + (this.facingRight ? 5 : -5 - this.hitbox.w) + this.w/2;
+                        } else {
+                            this.hitbox.x = this.x + (this.facingRight ? 25 : -25 - this.hitbox.w) + this.w/2; 
+                        }
+                        this.hitbox.y = this.y + 25; 
+                    } else if ((this.currentAttackType === 'DOWN' || this.currentAttackType === 'AIR_DOWN') && this.charId === 'mage') { if(this.charId === 'mage') { } else { this.hitbox.w = 80 * scale; this.hitbox.h = 30 * scale; this.hitbox.x = this.x + (this.facingRight ? -10 : -40); this.hitbox.y = this.y + 40; } } else if(this.currentAttackType === 'NEUTRAL' && this.charId === 'brawler') { this.hitbox.w = 40; this.hitbox.h = 30; this.hitbox.x = this.x + (this.facingRight ? 25 : -65); this.hitbox.y = this.y + 25; } else if (this.charId === 'hammer' && this.currentAttackType === 'NEUTRAL') {
                         // Hammer Ground NA Hitbox - 15-21 (SWING PHASE)
                         if (this.stateTimer >= 15 && this.stateTimer <= 21) { 
                             this.hitbox.active = true; 
@@ -2095,6 +2113,11 @@ function reportError(e) {
                         this.hitbox.h = 80;
                         this.hitbox.x = this.x + (this.w - this.hitbox.w)/2; // Center horizontally
                         this.hitbox.y = this.y + 40; // Start from legs/knees and go down
+                    } else if (this.currentAttackType === 'AIR_NEUTRAL' && this.charId === 'sword') {
+                        this.hitbox.w = 90 * scale;
+                        this.hitbox.h = 90 * scale;
+                        this.hitbox.x = this.x + this.w/2 - this.hitbox.w/2;
+                        this.hitbox.y = this.y + this.h/2 - this.hitbox.h/2;
                     } else { this.hitbox.x = this.x + (this.facingRight ? 20 : -20 - this.hitbox.w) + this.w/2; this.hitbox.y = this.y + 20; } } else { this.hitbox.active = false; } if (this.stateTimer >= atk.frames) { 
                         this.actionState = 'LAG'; this.stateTimer = atk.lag; this.chargePower = 1.0; this.hitbox.active = false; 
                         this.currentAttack = null; // FORCE CLEAR for safety
