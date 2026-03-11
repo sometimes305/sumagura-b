@@ -999,98 +999,71 @@ function reportError(e) {
                                 ctx.beginPath(); ctx.moveTo(cx, cY + 40); ctx.lineTo(cx - 10, cY + 60); ctx.stroke();
                                 ctx.beginPath(); ctx.moveTo(cx, cY + 40); ctx.lineTo(cx + 10, cY + 60); ctx.stroke();
                             }
-                            // 腕と短剣（攻撃モーション反映）
+                            // 浮遊鏡の基本座標
+                            var hoverY = Math.sin(Date.now() / 200) * 5;
+                            var baseY = cY + 20 + hoverY;
+                            var baseX = cx + (fr ? 30 : -30);
+
+                            // 腕（自然に下ろす）
                             ctx.strokeStyle = '#00cec9';
                             ctx.lineWidth = 3;
-                            var hx = cx + (fr ? 15 : -15);
-                            var hy = cY + 30;
+                            ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(cx + (fr ? 5 : -5), cY + 35); ctx.stroke();
+
+                            // 浮遊鏡のアニメーション
+                            var mirX = baseX;
+                            var mirY = baseY;
+                            var mirScale = 1.0;
+                            var mirAngle = 0;
+
                             if (fighter.actionState === 'ATTACK' && fighter.currentAttack) {
-                                var p = fighter.stateTimer / fighter.currentAttack.frames;
+                                var p = fighter.stateTimer / fighter.currentAttack.frames; // 1 -> 0
+                                var forwardP = 1.0 - p; // 0 -> 1
                                 var atkType = fighter.currentAttack.type;
-                                // 腕描画
-                                ctx.strokeStyle = '#81ecec';
-                                ctx.lineWidth = 4;
-                                if (atkType === 'mirror_spin') {
-                                    // 空中NA: 回転斬り
-                                    var angle = p * Math.PI * 2;
-                                    var r = 39;
-                                    var armX = cx + Math.cos(angle) * r * 0.6;
-                                    var armY = cY + 30 + Math.sin(angle) * r * 0.6;
-                                    ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(armX, armY); ctx.stroke();
-                                    // 鏡
-                                    ctx.strokeStyle = '#81ecec';
-                                    ctx.lineWidth = 2.6;
-                                    var dx = Math.cos(angle) * r;
-                                    var dy = Math.sin(angle) * r;
-                                    ctx.beginPath(); ctx.moveTo(cx + dx, cY + 30 + dy); ctx.lineTo(cx + dx + 13 * Math.cos(angle), cY + 30 + dy + 13 * Math.sin(angle)); ctx.stroke();
-                                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                                    ctx.beginPath(); ctx.arc(cx + dx + 6.5 * Math.cos(angle), cY + 30 + dy + 6.5 * Math.sin(angle), 5.2, 0, Math.PI*2); ctx.fill();
-                                    // 軌跡エフェクト
-                                    ctx.globalAlpha = 0.15;
-                                    ctx.strokeStyle = '#81ecec';
-                                    ctx.lineWidth = 2;
-                                    ctx.beginPath(); ctx.arc(cx, cY + 30, r, angle - 1.5, angle); ctx.stroke();
-                                    ctx.globalAlpha = 0.45;
-                                } else if (atkType === 'mirror_throw_up') {
-                                    // 上A: 頭上に鏡を投げて回転（鏡像）
-                                    var throwH = 35;
-                                    var throwAng = p * Math.PI * 4;
-                                    var mirX = cx;
-                                    var mirY = cY - 10 - throwH * Math.sin(p * Math.PI);
-                                    ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(mirX, mirY + 15); ctx.stroke();
-                                    ctx.strokeStyle = '#81ecec'; ctx.lineWidth = 2;
-                                    var mw = 15 * Math.cos(throwAng);
-                                    ctx.beginPath(); ctx.moveTo(mirX - mw, mirY); ctx.lineTo(mirX + mw, mirY); ctx.stroke();
-                                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                                    ctx.beginPath(); ctx.arc(mirX, mirY, 4, 0, Math.PI*2); ctx.fill();
-                                } else if (atkType === 'mirror_throw') {
-                                    // 横A: 前方に鏡を投げて回転（鏡像）
-                                    var throwDist = 50;
-                                    var throwAng2 = p * Math.PI * 4;
-                                    var mirX2 = cx + (fr ? throwDist : -throwDist);
-                                    var mirY2 = cY + 30 - 10 * Math.sin(p * Math.PI);
-                                    ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(mirX2 - (fr ? 15 : -15), mirY2); ctx.stroke();
-                                    ctx.strokeStyle = '#81ecec'; ctx.lineWidth = 2.6;
-                                    var mh2 = 28 * Math.cos(throwAng2);
-                                    ctx.beginPath(); ctx.moveTo(mirX2, mirY2 - mh2); ctx.lineTo(mirX2, mirY2 + mh2); ctx.stroke();
-                                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                                    ctx.beginPath(); ctx.arc(mirX2, mirY2, 4, 0, Math.PI*2); ctx.fill();
-                                } else if (atkType === 'mirror_slash') {
-                                    // NA: 鏡突き
-                                    var ext2 = p < 0.5 ? p * 39 : (1-p) * 39;
-                                    var armTargetX = cx + (fr ? 12 + ext2 : -12 - ext2);
-                                    var armY = cY + 25;
-                                    ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(armTargetX, armY); ctx.stroke();
-                                    ctx.strokeStyle = '#81ecec';
-                                    ctx.lineWidth = 2.6;
-                                    var mirLen = 26;
-                                    ctx.beginPath(); ctx.moveTo(armTargetX, armY); ctx.lineTo(armTargetX + (fr ? mirLen : -mirLen), armY); ctx.stroke();
-                                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                                    ctx.beginPath(); ctx.arc(armTargetX + (fr ? 20 : -20), armY, 5.2, 0, Math.PI*2); ctx.fill();
-                                } else if (atkType === 'mirror_place') {
-                                    // 鏡設置: 待機
-                                    ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(hx, hy); ctx.stroke();
-                                    ctx.strokeStyle = '#00cec9'; ctx.lineWidth = 2;
-                                    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (fr ? 20 : -20), hy - 5); ctx.stroke();
-                                } else {
-                                    // その他の攻撃
-                                    ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(hx, hy); ctx.stroke();
-                                    ctx.strokeStyle = '#00cec9';
-                                    ctx.lineWidth = 3;
-                                    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (fr ? 22 : -22), hy - 6); ctx.stroke();
+
+                                if (atkType === 'mirror_spin' || fighter.currentAttackType === 'AIR_NEUTRAL') {
+                                    var spinAngle = forwardP * Math.PI * 2;
+                                    if (!fr) spinAngle = -spinAngle;
+                                    var r = 40;
+                                    mirX = cx + Math.cos(spinAngle) * r;
+                                    mirY = cY + 25 + Math.sin(spinAngle) * r;
+                                    mirAngle = 0;
+                                } else if (atkType === 'mirror_throw_up' || fighter.currentAttackType === 'UP' || fighter.currentAttackType === 'AIR_UP') {
+                                    mirScale = 1.5;
+                                    mirAngle = forwardP * Math.PI * 4;
+                                    var throwH = 50;
+                                    mirX = cx;
+                                    mirY = cY - 10 - Math.sin(forwardP * Math.PI) * throwH;
+                                } else if (atkType === 'mirror_throw' || fighter.currentAttackType === 'SIDE' || fighter.currentAttackType === 'AIR_SIDE') {
+                                    mirScale = 1.6;
+                                    mirAngle = forwardP * Math.PI * 4;
+                                    var throwDist = 60;
+                                    var distX = Math.sin(forwardP * Math.PI) * throwDist;
+                                    mirX = cx + (fr ? distX : -distX);
+                                    mirY = cY + 25;
+                                } else if (fighter.currentAttackType === 'NEUTRAL' || atkType === 'mirror_slash') {
+                                    var pokeDist = Math.sin(forwardP * Math.PI) * 45;
+                                    mirX = cx + (fr ? 30 + pokeDist : -30 - pokeDist);
+                                } else if (fighter.currentAttackType === 'DOWN' || fighter.currentAttackType === 'AIR_DOWN' || atkType === 'mirror_place') {
+                                    mirScale = 1.5;
+                                    mirAngle = forwardP * Math.PI * 4;
+                                    var throwH = 40;
+                                    mirX = cx + (fr ? 15 : -15);
+                                    mirY = cY + 40 + Math.sin(forwardP * Math.PI) * throwH;
                                 }
-                            } else {
-                                // 待機ポーズ（手持ち鏡）
-                                ctx.strokeStyle = '#81ecec';
-                                ctx.lineWidth = 4;
-                                ctx.beginPath(); ctx.moveTo(cx, cY + 20); ctx.lineTo(hx, hy); ctx.stroke();
-                                ctx.strokeStyle = '#81ecec';
-                                ctx.lineWidth = 2.6;
-                                var cmLen = 26;
-                                ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (fr ? 6 : -6), hy - cmLen); ctx.stroke();
-                                ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                                ctx.beginPath(); ctx.arc(hx + (fr ? 6 : -6), hy - cmLen, 5.2, 0, Math.PI*2); ctx.fill();
                             }
+
+                            // 鏡像の鏡の描画（独立）
+                            ctx.save();
+                            ctx.translate(mirX, mirY);
+                            ctx.rotate(mirAngle);
+                            ctx.scale(mirScale, mirScale);
+
+                            ctx.strokeStyle = '#81ecec';
+                            ctx.lineWidth = 2.6;
+                            var len = 14;
+                            ctx.beginPath(); ctx.moveTo(0, -len); ctx.lineTo(0, len); ctx.stroke();
+                            
+                            ctx.restore();
 
                             ctx.restore();
                         }
@@ -2706,9 +2679,6 @@ function reportError(e) {
                                 // 鏡の外枠（縦長楕円の代わりとしての線）
                                 var len = 14;
                                 ctx.beginPath(); ctx.moveTo(0, -len); ctx.lineTo(0, len); ctx.stroke();
-                                // 鏡柱の輝き
-                                ctx.fillStyle = mirrorGlowColor;
-                                ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
 
                                 ctx.restore();
 
