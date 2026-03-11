@@ -11,8 +11,8 @@ function reportError(e) {
 
         // 1. GLOBAL NAMESPACE
         window.SMA = {};
-        window.SMA.ID_PREFIX = "sumagura_v430_"; 
-        window.SMA.VERSION = "v430";
+        window.SMA.ID_PREFIX = "sumagura_v431_"; 
+        window.SMA.VERSION = "v431";
         window.SMA.GRAVITY = 0.40; window.SMA.MAX_FALL_SPEED = 9.0;
         window.SMA.FRICTION = 0.82; window.SMA.KB_FRICTION = 0.95;
         window.SMA.SPEED = 1.1; window.SMA.JUMP_FORCE = -10.0;
@@ -2585,6 +2585,12 @@ function reportError(e) {
                                 ctx.strokeStyle = (this.invincible > 0) ? '#fff' : this.color;
                             }
                             ctx.lineWidth = 3;
+                            
+                            // 浮遊鏡の基本座標 (少し前方)
+                            var hoverY = Math.sin(Date.now() / 200) * 5; // フワフワ上下
+                            var baseY = this.y + 20 + hoverY;
+                            var baseX = cx + (this.facingRight ? 30 : -30);
+
                             // 崖つかまり中の描画
                             if (this.actionState === 'LEDGE' || this.actionState === 'LEDGE_UP' || this.actionState === 'LEDGE_ATK') {
                                 ctx.beginPath(); ctx.arc(cx, this.y+10, 8, 0, Math.PI*2); ctx.stroke();
@@ -2607,129 +2613,110 @@ function reportError(e) {
                                 drawn = true;
                             }
                             if (!drawn) {
-                            // 体
-                            ctx.beginPath(); ctx.moveTo(cx, this.y + 10); ctx.lineTo(cx, this.y + 40); ctx.stroke();
-                            // 足
-                            ctx.beginPath(); ctx.moveTo(cx, this.y + 40); ctx.lineTo(cx - 10, this.y + 60); ctx.stroke();
-                            ctx.beginPath(); ctx.moveTo(cx, this.y + 40); ctx.lineTo(cx + 10, this.y + 60); ctx.stroke();
-                            // 頭
-                            ctx.beginPath(); ctx.arc(cx, this.y + 10, 8, 0, Math.PI * 2); ctx.stroke();
-                            // 腕（GRAB_ATTEMPTなら前に伸ばす）
-                            if (this.actionState === 'GRAB_ATTEMPT') {
-                                var gp = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
-                                var al = Math.round(10 + gp * 35);
-                                ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? al : -al), this.y + 22); ctx.stroke();
-                                ctx.beginPath(); ctx.arc(cx + (this.facingRight ? al : -al), this.y + 22, 5, 0, Math.PI * 2); ctx.stroke();
-                            } else {
-                                ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? 15 : -15), this.y + 30); ctx.stroke();
-                            }
-                            // 手持ち鏡
-                            var mirrorColor = this.mirrorCooldown > 0 ? '#555' : '#81ecec';
-                            var mirrorGlowColor = this.mirrorCooldown > 0 ? '#333' : 'rgba(255,255,255,0.6)';
-                            ctx.strokeStyle = mirrorColor;
-                            ctx.lineWidth = 2;
-                            var hx = cx + (this.facingRight ? 15 : -15);
-                            var hy = this.y + 30;
-                            if (this.actionState === 'ATTACK' && this.currentAttack) {
-                                var p = this.stateTimer / this.currentAttack.frames;
-                                if (this.currentAttack.type === 'mirror_spin') {
-                                    var angle = p * Math.PI * 2;
-                                    var r = 32;
-                                    var dx = Math.cos(angle) * r;
-                                    var dy = Math.sin(angle) * r;
-                                    ctx.save();
-                                    // 腕の描画
-                                    ctx.strokeStyle = this.color;
-                                    ctx.lineWidth = 3;
-                                    if (this.actionState === 'LEDGE' || this.actionState === 'LEDGE_UP') { ctx.strokeStyle = (this.invincible > 0) ? '#fff' : this.color; }
-                                    ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + dx * 0.5, this.y + 30 + dy * 0.5); ctx.stroke();
-                                    // 鏡の描画
-                                    ctx.strokeStyle = mirrorColor;
-                                    ctx.lineWidth = 2.6;
-                                    ctx.beginPath(); ctx.moveTo(cx + dx, this.y + 30 + dy); ctx.lineTo(cx + dx + 13 * Math.cos(angle), this.y + 30 + dy + 13 * Math.sin(angle)); ctx.stroke();
-                                    ctx.fillStyle = mirrorGlowColor;
-                                    ctx.beginPath(); ctx.arc(cx + dx + 6.5 * Math.cos(angle), this.y + 30 + dy + 6.5 * Math.sin(angle), 5.2, 0, Math.PI*2); ctx.fill();
-                                    ctx.restore();
-                                } else if (this.currentAttack.type === 'mirror_throw_up') {
-                                    // 上A: 頭上に鏡を投げて回転
-                                    var throwH = 45;
-                                    var throwAng = p * Math.PI * 4;
-                                    var mirX = cx;
-                                    var mirY = this.y - 10 - throwH * Math.sin(p * Math.PI);
-                                    ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(mirX, mirY + 15); ctx.stroke();
-                                    ctx.strokeStyle = mirrorColor; ctx.lineWidth = 2.6;
-                                    var mw = 19.5 * Math.cos(throwAng);
-                                    ctx.beginPath(); ctx.moveTo(mirX - mw, mirY); ctx.lineTo(mirX + mw, mirY); ctx.stroke();
-                                    // 鏡の光
-                                    ctx.fillStyle = mirrorGlowColor;
-                                    ctx.beginPath(); ctx.arc(mirX, mirY, 5.2, 0, Math.PI*2); ctx.fill();
-                                } else if (this.currentAttack.type === 'mirror_throw') {
-                                    // 横A: 前方に鏡を投げて回転
-                                    var throwDist = 50;
-                                    var throwAng2 = p * Math.PI * 4;
-                                    var mirX2 = cx + (this.facingRight ? throwDist : -throwDist);
-                                    var mirY2 = this.y + 30 - 10 * Math.sin(p * Math.PI);
-                                    ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(mirX2 - (this.facingRight ? 15 : -15), mirY2); ctx.stroke();
-                                    ctx.strokeStyle = mirrorColor; ctx.lineWidth = 2.6;
-                                    var mh2 = 28 * Math.cos(throwAng2);
-                                    ctx.beginPath(); ctx.moveTo(mirX2, mirY2 - mh2); ctx.lineTo(mirX2, mirY2 + mh2); ctx.stroke();
-                                    ctx.fillStyle = mirrorGlowColor;
-                                    ctx.beginPath(); ctx.arc(mirX2, mirY2, 5.2, 0, Math.PI*2); ctx.fill();
-                                } else if (this.currentAttackType === 'SIDE' || this.currentAttackType === 'AIR_SIDE') {
-                                    // 横A: 鏡振り下ろし
-                                    var swStart = 45; var swEnd = 135;
-                                    if (!this.facingRight) { swStart = -45; swEnd = -135; }
-                                    var swAng = (swStart + (swEnd - swStart) * p) * Math.PI / 180;
-                                    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(swAng) * 25, hy + Math.sin(swAng) * 25); ctx.stroke();
-                                } else if (this.currentAttackType === 'NEUTRAL') {
-                                    // 地上NA: 前方鏡突き
-                                    var ext2 = p < 0.5 ? p * 39 : (1-p) * 39;
-                                    ctx.save();
-                                    // 腕
-                                    ctx.strokeStyle = this.color;
-                                    ctx.lineWidth = 3;
-                                    var armTargetX = hx + (this.facingRight ? ext2 : -ext2);
-                                    ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(armTargetX, hy); ctx.stroke();
-                                    // 鏡
-                                    ctx.strokeStyle = mirrorColor;
-                                    ctx.lineWidth = 2.6;
-                                    ctx.beginPath(); ctx.moveTo(armTargetX, hy); ctx.lineTo(armTargetX + (this.facingRight ? 26 : -26), hy); ctx.stroke();
-                                    ctx.fillStyle = mirrorGlowColor;
-                                    ctx.beginPath(); ctx.arc(armTargetX + (this.facingRight ? 20 : -20), hy, 5.2, 0, Math.PI*2); ctx.fill();
-                                    ctx.restore();
-                                } else if (this.currentAttackType === 'LEDGE_ATK') {
-                                    // 崖攻撃
-                                    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (this.facingRight ? 22 : -22), hy - 8); ctx.stroke();
+                                // 体
+                                ctx.beginPath(); ctx.moveTo(cx, this.y + 10); ctx.lineTo(cx, this.y + 40); ctx.stroke();
+                                // 足
+                                ctx.beginPath(); ctx.moveTo(cx, this.y + 40); ctx.lineTo(cx - 10, this.y + 60); ctx.stroke();
+                                ctx.beginPath(); ctx.moveTo(cx, this.y + 40); ctx.lineTo(cx + 10, this.y + 60); ctx.stroke();
+                                // 頭
+                                ctx.beginPath(); ctx.arc(cx, this.y + 10, 8, 0, Math.PI * 2); ctx.stroke();
+                                
+                                // 腕（GRAB_ATTEMPTなら前に伸ばす、それ以外は自然に下ろす）
+                                if (this.actionState === 'GRAB_ATTEMPT') {
+                                    var gp = this.stateTimer <= 7 ? this.stateTimer / 7 : 1 - (this.stateTimer - 7) / 8;
+                                    var al = Math.round(10 + gp * 35);
+                                    ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? al : -al), this.y + 22); ctx.stroke();
+                                    ctx.beginPath(); ctx.arc(cx + (this.facingRight ? al : -al), this.y + 22, 5, 0, Math.PI * 2); ctx.stroke();
                                 } else {
-                                    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (this.facingRight ? 20 : -20), hy - 5); ctx.stroke();
+                                    // 自然に下ろす
+                                    ctx.beginPath(); ctx.moveTo(cx, this.y + 20); ctx.lineTo(cx + (this.facingRight ? 5 : -5), this.y + 35); ctx.stroke();
                                 }
-                            } else if (this.actionState === 'CHARGE') {
-                                var jx = (Math.random() - 0.5) * 3;
-                                var jy = (Math.random() - 0.5) * 3;
-                                ctx.save();
+
+                                // 浮遊鏡の描画設定
+                                var mirrorColor = this.mirrorCooldown > 0 ? '#555' : '#81ecec';
+                                var mirrorGlowColor = this.mirrorCooldown > 0 ? '#333' : 'rgba(255,255,255,0.6)';
                                 ctx.strokeStyle = mirrorColor;
                                 ctx.lineWidth = 2.6;
-                                var mirLen2 = 26;
-                                ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (this.facingRight ? 6 : -6) + jx, hy - mirLen2 + jy); ctx.stroke();
-                                ctx.fillStyle = mirrorGlowColor;
-                                ctx.beginPath(); ctx.arc(hx + (this.facingRight ? 6 : -6) + jx, hy - mirLen2 + jy, 5.2, 0, Math.PI * 2); ctx.fill();
-                                if (this.chargePower > 1.2) { ctx.shadowBlur = 10; ctx.shadowColor = '#81ecec'; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (this.facingRight ? 8 : -8), hy - 28); ctx.stroke(); }
-                                ctx.restore();
-                            } else {
-                                // 手持ち鏡（アイドル時、1.3倍サイズ）
+
+                                // 浮遊鏡のアニメーション
+                                var mirX = baseX;
+                                var mirY = baseY;
+                                var mirScale = 1.0;
+                                var mirAngle = 0;
+
+                                if (this.actionState === 'ATTACK' && this.currentAttack) {
+                                    var p = this.stateTimer / this.currentAttack.frames; // 1 -> 0
+                                    var forwardP = 1.0 - p; // 0 -> 1
+
+                                    if (this.currentAttack.type === 'mirror_spin' || this.currentAttackType === 'AIR_NEUTRAL') {
+                                        // 空中NA: キャラの周りを一周
+                                        var spinAngle = forwardP * Math.PI * 2;
+                                        if (!this.facingRight) spinAngle = -spinAngle;
+                                        var r = 40;
+                                        mirX = cx + Math.cos(spinAngle) * r;
+                                        mirY = this.y + 25 + Math.sin(spinAngle) * r;
+                                        mirAngle = spinAngle + Math.PI/2;
+                                    } else if (this.currentAttack.type === 'mirror_throw_up' || this.currentAttackType === 'UP' || this.currentAttackType === 'AIR_UP') {
+                                        // 上A: 上方へ飛び出す
+                                        mirScale = 1.5;
+                                        mirAngle = forwardP * Math.PI * 4;
+                                        var throwH = 50;
+                                        mirX = cx;
+                                        mirY = this.y - 10 - Math.sin(forwardP * Math.PI) * throwH;
+                                    } else if (this.currentAttack.type === 'mirror_throw' || this.currentAttackType === 'SIDE' || this.currentAttackType === 'AIR_SIDE') {
+                                        // 横A: 前方へ飛び出し回転
+                                        mirScale = 1.6;
+                                        mirAngle = forwardP * Math.PI * 4;
+                                        var throwDist = 60;
+                                        var distX = Math.sin(forwardP * Math.PI) * throwDist;
+                                        mirX = cx + (this.facingRight ? distX : -distX);
+                                        mirY = this.y + 25;
+                                    } else if (this.currentAttackType === 'NEUTRAL') {
+                                        // 地上NA: 前方に一瞬突き出る（回転無し）
+                                        var pokeDist = Math.sin(forwardP * Math.PI) * 45;
+                                        mirX = cx + (this.facingRight ? 30 + pokeDist : -30 - pokeDist);
+                                    } else if (this.currentAttackType === 'DOWN' || this.currentAttackType === 'AIR_DOWN' || this.currentAttack.type === 'mirror_place') {
+                                        // 下A: 下方へ飛び出し回転
+                                        mirScale = 1.5;
+                                        mirAngle = forwardP * Math.PI * 4;
+                                        var throwH = 40;
+                                        mirX = cx + (this.facingRight ? 15 : -15);
+                                        mirY = this.y + 40 + Math.sin(forwardP * Math.PI) * throwH;
+                                    }
+                                } else if (this.actionState === 'CHARGE') {
+                                    // チャージ中：震える
+                                    mirX += (Math.random() - 0.5) * 5;
+                                    mirY += (Math.random() - 0.5) * 5;
+                                    if (this.chargePower > 1.2) { 
+                                        ctx.shadowBlur = 10; ctx.shadowColor = '#81ecec'; ctx.strokeStyle = '#fff'; 
+                                    }
+                                } else if (this.actionState === 'LEDGE_ATK') {
+                                    // 崖攻撃
+                                    mirX = cx + (this.facingRight ? 40 : -40);
+                                    mirAngle = Math.PI / 4;
+                                    mirScale = 1.2;
+                                }
+
+                                // 鏡の描画（独立）
                                 ctx.save();
-                                ctx.strokeStyle = mirrorColor;
-                                ctx.lineWidth = 2.6;
-                                var mirLen = 26;
-                                ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (this.facingRight ? 6 : -6), hy - mirLen); ctx.stroke();
+                                ctx.translate(mirX, mirY);
+                                ctx.rotate(mirAngle);
+                                ctx.scale(mirScale, mirScale);
+
+                                // 鏡の外枠（縦長楕円の代わりとしての線）
+                                var len = 14;
+                                ctx.beginPath(); ctx.moveTo(0, -len); ctx.lineTo(0, len); ctx.stroke();
+                                // 鏡柱の輝き
                                 ctx.fillStyle = mirrorGlowColor;
-                                ctx.beginPath(); ctx.arc(hx + (this.facingRight ? 6 : -6), hy - mirLen, 5.2, 0, Math.PI * 2); ctx.fill();
+                                ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+
                                 ctx.restore();
-                            }
-                            // シールド
-                            if (this.actionState === 'SHIELD') { ctx.save(); ctx.fillStyle = 'rgba(116, 185, 255, ' + (this.shieldHP / 150) + ')'; ctx.strokeStyle = '#0984e3'; ctx.beginPath(); ctx.arc(cx, this.y + 30, 45, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
-                            ctx.restore();
-                            drawn = true;
+
+                                // シールド
+                                if (this.actionState === 'SHIELD') { ctx.save(); ctx.fillStyle = 'rgba(116, 185, 255, ' + (this.shieldHP / 150) + ')'; ctx.strokeStyle = '#0984e3'; ctx.beginPath(); ctx.arc(cx, this.y + 30, 45, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
+                                
+                                ctx.restore();
+                                drawn = true;
                             } // !drawn 閉じ
                         }
                         if (this.charId !== 'spear' && this.charId !== 'hammer' && this.charId !== 'mirror') {
