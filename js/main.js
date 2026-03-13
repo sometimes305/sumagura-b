@@ -1669,8 +1669,8 @@ function reportError(e) {
                             this.x = this.mirrorClone.x; this.y = this.mirrorClone.y;
                             this.facingRight = !this.facingRight;
                         }
-                        this.mirror = null; this.mirrorClone = null;
-                        this.mirrorCooldown = 300; // 入れ替わり後5秒クールタイム
+                        // 鏡を維持するため、mirror = null にしない。
+                        // 位置交換後は18フレームの硬直（LAG）があるため、連続連打はある程度制限されるが、鏡は残り続ける。
                         S.createParticles(oldX + this.w/2, oldY + this.h/2, 15, '#81ecec');
                         S.createParticles(this.x + this.w/2, this.y + this.h/2, 15, '#81ecec');
                         S.playSound('magic');
