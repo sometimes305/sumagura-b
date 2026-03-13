@@ -934,7 +934,7 @@ function reportError(e) {
                 window.SMA.players.forEach(function(p) { try { if(p) p.draw(window.SMA.ctx); } catch(e){} }); 
                 // 鏡オブジェクトと鏡像の描画
                 try {
-                    [window.SMA.pOne, window.SMA.pTwo].forEach(function(fighter) {
+                    window.SMA.players.forEach(function(fighter) {
                         if (!fighter || fighter.charId !== 'mirror') return;
                         // 鏡設置中: プレビュー表示
                         if (!fighter.mirror && fighter.actionState === 'ATTACK' && fighter.currentAttack && fighter.currentAttack.type === 'mirror_place') {
@@ -1284,9 +1284,6 @@ function reportError(e) {
                 var pData = d['p' + (si+1)];
                 if(pData) window.SMA.players[si].deserialize(pData);
             }
-            // 後方互換: p1/p2が直接来た場合
-            if (d.p1 && window.SMA.pOne) window.SMA.pOne.deserialize(d.p1); 
-            if (d.p2 && window.SMA.pTwo) window.SMA.pTwo.deserialize(d.p2); 
             if(d.projs) window.SMA.projectiles = d.projs; 
             if(d.events) { d.events.forEach(function(e) { if(e.type === 'snd') window.SMA.playSound(e.key); if(e.type === 'part') window.SMA.createParticles(e.x, e.y, e.n, e.c); if(e.type === 'comet') window.SMA.triggerComet(e.x, e.y, e.dir, e.c); }); } 
             window.SMA.updateHud(); 
