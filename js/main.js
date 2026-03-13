@@ -1672,19 +1672,18 @@ function reportError(e) {
                         S.playSound('magic');
                         this.actionState = 'LAG'; this.stateTimer = 18;
                         this.currentAttack = null; this.chargePower = 1.0; return;
+                    } else if (this.mirror && this.mirror.swapped) {
+                        // 既に入れ替わり済みの場合は何もしない（鏡が消えるまで待機）
+                        this.actionState = 'LAG'; this.stateTimer = 18;
+                        this.currentAttack = null; this.chargePower = 1.0; return;
                     } else {
-                        // 鏡が無い、または既に入れ替わり済みの場合は新しい鏡を設置する
-                        if (this.mirrorCooldown > 0 && !this.mirror) {
+                        // 鏡が無い場合は新しい鏡を設置する
+                        if (this.mirrorCooldown > 0) {
                             // クールタイム中は設置不可
                             this.actionState = 'LAG'; this.stateTimer = 8;
                             this.currentAttack = null; this.chargePower = 1.0; return;
                         }
-                        // 古い鏡がある場合は消去（上書き準備）
-                        if (this.mirror) {
-                            this.mirror = null;
-                            this.mirrorClone = null;
-                        }
-                        // 鏡設置開始: ちょん押し=60px（横A間合い程度）
+                        // 鏡設置開始: ちょん押し=60px
                         this.mirrorPlaceRange = 60;
                     }
                 }
