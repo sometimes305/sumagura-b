@@ -56,6 +56,301 @@ function reportError(e) {
         window.SMA.isExpectedClose = false; 
         window.SMA.hasJoined = false; 
 
+        // BINARY SERIALIZATION UTILS
+        window.SMA.BIN_TYPE_SYNC = 0x01;
+        window.SMA.BIN_TYPE_INPUT = 0x02;
+
+        window.SMA.packSync = function (pkt) {
+            var projsCount = pkt.projs ? pkt.projs.length : 0;
+            var eventsCount = pkt.events ? pkt.events.length : 0;
+            var winBuf = null;
+            var winLen = 0;
+            if (pkt.win) { winBuf = new TextEncoder().encode(pkt.win); winLen = winBuf.length; }
+
+            var pc = pkt.playerCount || 2;
+            var totalSize = 1 + 1 + 1 + 2 + 1 + (pc * 81) + 2 + (eventsCount * 7) + 2 + (projsCount * 30) + 2 + winLen;
+            var buf = new ArrayBuffer(totalSize);
+            var view = new DataView(buf);
+            var offset = 0;
+            view.setUint8(offset++, window.SMA.BIN_TYPE_SYNC);
+
+            var stgMap = { 'battlefield': 1, 'final': 2 };
+            view.setUint8(offset++, stgMap[pkt.stg] || 1);
+
+            var stateMap = { 'LOBBY': 1, 'CSS': 2, 'SSS': 3, 'PLAYING': 4, 'GAMEOVER': 5, 'COUNTDOWN': 6 };
+            view.setUint8(offset++, stateMap[pkt.gState] || 4);
+            view.setInt16(offset, pkt.cd || 0); offset += 2;
+            view.setUint8(offset++, pc);
+
+            var packFighter = function (p) {
+                if (!p) { offset += 81; return; }
+                view.setFloat32(offset, p.x); offset += 4;
+                view.setFloat32(offset, p.y); offset += 4;
+                view.setFloat32(offset, p.vx); offset += 4;
+                view.setFloat32(offset, p.vy); offset += 4;
+                var actMap = { 'IDLE': 1, 'RUN': 2, 'JUMP': 3, 'FALL': 4, 'ATTACK': 5, 'CHARGE': 6, 'SHIELD': 7, 'STUN': 8, 'DEAD': 9, 'RESPAWN': 10, 'LEDGE': 11, 'LEDGE_UP': 12, 'LEDGE_ATK': 13, 'LEDGE_ROLL': 14, 'PRE_JUMP': 15, 'GRABBED': 16 };
+                view.setUint8(offset++, actMap[p.state] || 1);
+                view.setUint16(offset, p.timer); offset += 2;
+                var atkMap = { 'NEUTRAL': 1, 'SIDE': 2, 'UP': 3, 'DOWN': 4, 'AIR_NEUTRAL': 5, 'AIR_SIDE': 6, 'AIR_UP': 7, 'AIR_DOWN': 8, 'DASH': 9, 'GRAB_ATK': 10, 'THROW_UP': 11, 'THROW_FWD': 12, 'THROW_BACK': 13, 'THROW_DOWN': 14 };
+                view.setUint8(offset++, atkMap[p.atkType] || 0);
+                view.setUint8(offset++, p.grounded ? 1 : 0);
+                view.setFloat32(offset, p.pct); offset += 4;
+                view.setUint8(offset++, p.st);
+                view.setUint8(offset++, p.face ? 1 : 0);
+                view.setFloat32(offset, p.chg); offset += 4;
+                view.setFloat32(offset, p.sh); offset += 4;
+                view.setUint8(offset++, p.inv ? 1 : 0);
+                view.setUint8(offset++, p.grInv || 0);
+                
+                view.setUint8(offset++, p.mirror ? 1 : 0);
+                if (p.mirror) {
+                    view.setFloat32(offset, p.mirror.x); offset += 4;
+                    view.setFloat32(offset, p.mirror.y); offset += 4;
+                    view.setUint16(offset, p.mirror.timer); offset += 2;
+                    view.setUint8(offset++, p.mirror.swapped ? 1 : 0);
+                } else { offset += 11; }
+                
+                view.setUint8(offset++, p.mirrorClone ? 1 : 0);
+                if (p.mirrorClone) {
+                    view.setFloat32(offset, p.mirrorClone.x); offset += 4;
+                    view.setFloat32(offset, p.mirrorClone.y); offset += 4;
+                } else { offset += 8; }
+                
+                view.setUint16(offset, p.mirrorCooldown || 0); offset += 2;
+                view.setFloat32(offset, p.mirrorPlaceRange || 0); offset += 4;
+                
+                view.setUint8(offset++, p.hitboxActive ? 1 : 0);
+                view.setFloat32(offset, p.hitboxX || 0); offset += 4;
+                view.setFloat32(offset, p.hitboxY || 0); offset += 4;
+                view.setFloat32(offset, p.hitboxW || 0); offset += 4;
+                view.setFloat32(offset, p.hitboxH || 0); offset += 4;
+            };
+            for (var si = 0; si < pc; si++) {
+                packFighter(pkt['p' + (si+1)]);
+            }
+
+            view.setUint16(offset, eventsCount); offset += 2;
+            var eTypeMap = { 'comet': 1, 'part': 2, 'snd': 3 };
+            if (pkt.events) {
+                pkt.events.forEach(function (e) {
+                    view.setUint8(offset++, eTypeMap[e.type] || 0);
+                    if (e.type === 'comet' || e.type === 'part') {
+                        view.setUint16(offset, e.x); offset += 2;
+                        view.setUint16(offset, e.y); offset += 2;
+                        view.setUint8(offset++, e.n || 0);
+                        var cMap = { '#81ecec': 1, '#ff7675': 2, '#fff': 3, '#ffeaa7': 4, '#e17055': 5 };
+                        view.setUint8(offset++, cMap[e.c] || 0);
+                    } else if (e.type === 'snd') {
+                        var sMap = { 'magic': 1, 'fire': 2, 'spin': 3, 'hit': 4, 'jump': 5, 'sword': 6, 'shot': 7, 'special': 8, 'win': 9 };
+                        view.setUint8(offset++, sMap[e.key] || 0);
+                        offset += 5;
+                    }
+                });
+            }
+
+            view.setUint16(offset, projsCount); offset += 2;
+            var pTypeMap = { 'shot': 1, 'fire': 2, 'up_rush': 3, 'ground_shock': 4, 'boomerang': 5, 'boomerang_up': 6, 'fire_trap': 7, 'mirror_spin': 8, 'mirror_throw': 9, 'mirror_throw_up': 10 };
+            var pColorMap = { '#81ecec': 1, '#ff7675': 2, '#ffeaa7': 3, '#e17055': 4, '#55efc4': 5, '#74b9ff': 6, '#fdcb6e': 7, '#000': 8, '#ccc': 9, '#b2bec3': 10 };
+            if (pkt.projs) {
+                pkt.projs.forEach(function (p) {
+                    view.setFloat32(offset, p.x); offset += 4;
+                    view.setFloat32(offset, p.y); offset += 4;
+                    view.setFloat32(offset, p.vx); offset += 4;
+                    view.setFloat32(offset, p.vy); offset += 4;
+                    view.setUint8(offset++, pTypeMap[p.type] || 1);
+                    view.setFloat32(offset, p.w); offset += 4;
+                    view.setFloat32(offset, p.h); offset += 4;
+                    view.setUint8(offset++, pColorMap[p.color] || 1);
+                    view.setFloat32(offset, p.angle || 0); offset += 4;
+                });
+            }
+
+            view.setUint16(offset, winLen); offset += 2;
+            if (winLen > 0) {
+                var enc = new TextEncoder();
+                var winBuf = enc.encode(pkt.win);
+                for (var i = 0; i < winLen; i++) {
+                    view.setUint8(offset++, winBuf[i]);
+                }
+            }
+            return buf;
+        };
+
+        window.SMA.unpackSync = function (buf) {
+            var view = new DataView(buf.buffer ? buf.buffer : buf);
+            var offset = 1;
+
+            var stgRMap = { 1: 'battlefield', 2: 'final' };
+            var stg = stgRMap[view.getUint8(offset++)] || 'battlefield';
+
+            var stateRMap = { 1: 'LOBBY', 2: 'CSS', 3: 'SSS', 4: 'PLAYING', 5: 'GAMEOVER', 6: 'COUNTDOWN' };
+            var gState = stateRMap[view.getUint8(offset++)] || 'PLAYING';
+            var cd = view.getInt16(offset); offset += 2;
+            var pc = view.getUint8(offset++);
+
+            var unpackFighter = function () {
+                var p = {};
+                p.x = view.getFloat32(offset); offset += 4;
+                p.y = view.getFloat32(offset); offset += 4;
+                p.vx = view.getFloat32(offset); offset += 4;
+                p.vy = view.getFloat32(offset); offset += 4;
+                var actRMap = { 1: 'IDLE', 2: 'RUN', 3: 'JUMP', 4: 'FALL', 5: 'ATTACK', 6: 'CHARGE', 7: 'SHIELD', 8: 'STUN', 9: 'DEAD', 10: 'RESPAWN', 11: 'LEDGE', 12: 'LEDGE_UP', 13: 'LEDGE_ATK', 14: 'LEDGE_ROLL', 15: 'PRE_JUMP', 16: 'GRABBED' };
+                p.state = actRMap[view.getUint8(offset++)] || 'IDLE';
+                p.timer = view.getUint16(offset); offset += 2;
+                var atkRMap = { 0: null, 1: 'NEUTRAL', 2: 'SIDE', 3: 'UP', 4: 'DOWN', 5: 'AIR_NEUTRAL', 6: 'AIR_SIDE', 7: 'AIR_UP', 8: 'AIR_DOWN', 9: 'DASH', 10: 'GRAB_ATK', 11: 'THROW_UP', 12: 'THROW_FWD', 13: 'THROW_BACK', 14: 'THROW_DOWN' };
+                p.atkType = atkRMap[view.getUint8(offset++)] || null;
+                p.grounded = view.getUint8(offset++) === 1;
+                p.pct = view.getFloat32(offset); offset += 4;
+                p.st = view.getUint8(offset++);
+                p.face = view.getUint8(offset++) === 1;
+                p.chg = view.getFloat32(offset); offset += 4;
+                p.sh = view.getFloat32(offset); offset += 4;
+                p.inv = view.getUint8(offset++) === 1;
+                p.grInv = view.getUint8(offset++);
+                
+                var hasMirror = view.getUint8(offset++) === 1;
+                if (hasMirror) {
+                    p.mirror = {
+                        x: view.getFloat32(offset),
+                        y: view.getFloat32(offset + 4),
+                        timer: view.getUint16(offset + 8),
+                        swapped: view.getUint8(offset + 10) === 1
+                    };
+                    offset += 11;
+                } else { p.mirror = null; offset += 11; }
+                
+                var hasClone = view.getUint8(offset++) === 1;
+                if (hasClone) {
+                    p.mirrorClone = {
+                        x: view.getFloat32(offset),
+                        y: view.getFloat32(offset + 4)
+                    };
+                    offset += 8;
+                } else { p.mirrorClone = null; offset += 8; }
+                
+                p.mirrorCooldown = view.getUint16(offset); offset += 2;
+                p.mirrorPlaceRange = view.getFloat32(offset); offset += 4;
+
+                p.hitboxActive = view.getUint8(offset++) === 1;
+                p.hitboxX = view.getFloat32(offset); offset += 4;
+                p.hitboxY = view.getFloat32(offset); offset += 4;
+                p.hitboxW = view.getFloat32(offset); offset += 4;
+                p.hitboxH = view.getFloat32(offset); offset += 4;
+                return p;
+            };
+            
+            var res = { stg: stg, gState: gState, cd: cd, playerCount: pc, events: [], projs: [], win: null };
+            for (var si = 0; si < pc; si++) {
+                res['p' + (si+1)] = unpackFighter();
+            }
+
+            var eventsCount = view.getUint16(offset); offset += 2;
+            var events = [];
+            var eTypeRMap = { 1: 'comet', 2: 'part', 3: 'snd' };
+            var cRMap = { 0: '#fff', 1: '#81ecec', 2: '#ff7675', 3: '#fff', 4: '#ffeaa7', 5: '#e17055' };
+            var sRMap = { 1: 'magic', 2: 'fire', 3: 'spin', 4: 'hit', 5: 'jump', 6: 'sword', 7: 'shot', 8: 'special', 9: 'win' };
+            for (var i = 0; i < eventsCount; i++) {
+                var eType = eTypeRMap[view.getUint8(offset++)];
+                if (eType === 'comet' || eType === 'part') {
+                    events.push({
+                        type: eType,
+                        x: view.getUint16(offset),
+                        y: view.getUint16(offset + 2),
+                        n: view.getUint8(offset + 4),
+                        c: cRMap[view.getUint8(offset + 5)]
+                    });
+                    offset += 6;
+                } else if (eType === 'snd') {
+                    events.push({ type: 'snd', key: sRMap[view.getUint8(offset)] || 'hit' });
+                    offset += 6;
+                } else {
+                    offset += 6;
+                }
+            }
+
+            var projsCount = view.getUint16(offset); offset += 2;
+            var projs = [];
+            var pTypeRMap = { 1: 'shot', 2: 'fire', 3: 'up_rush', 4: 'ground_shock', 5: 'boomerang', 6: 'boomerang_up', 7: 'fire_trap', 8: 'mirror_spin', 9: 'mirror_throw', 10: 'mirror_throw_up' };
+            var pColorRMap = { 1: '#81ecec', 2: '#ff7675', 3: '#ffeaa7', 4: '#e17055', 5: '#55efc4', 6: '#74b9ff', 7: '#fdcb6e', 8: '#000', 9: '#ccc', 10: '#b2bec3' };
+            for (var j = 0; j < projsCount; j++) {
+                projs.push({
+                    x: view.getFloat32(offset),
+                    y: view.getFloat32(offset + 4),
+                    vx: view.getFloat32(offset + 8),
+                    vy: view.getFloat32(offset + 12),
+                    type: pTypeRMap[view.getUint8(offset + 16)],
+                    w: view.getFloat32(offset + 17),
+                    h: view.getFloat32(offset + 21),
+                    color: pColorRMap[view.getUint8(offset + 25)],
+                    angle: view.getFloat32(offset + 29)
+                });
+                offset += 30;
+            }
+
+            var winLen = view.getUint16(offset); offset += 2;
+            var win = null;
+            if (winLen > 0) {
+                var winArr = new Uint8Array(buf.buffer ? buf.buffer : buf, offset, winLen);
+                win = new TextDecoder().decode(winArr);
+            }
+
+            res.events = events;
+            res.projs = projs;
+            res.win = win;
+            return res;
+        };
+
+        window.SMA.packInput = function (keys) {
+            var buf = new ArrayBuffer(4);
+            var view = new DataView(buf);
+            view.setUint8(0, window.SMA.BIN_TYPE_INPUT);
+            var b1 = 0;
+            if (keys.up) b1 |= 1;
+            if (keys.down) b1 |= 2;
+            if (keys.left) b1 |= 4;
+            if (keys.right) b1 |= 8;
+            if (keys.jump) b1 |= 16;
+            if (keys.attack) b1 |= 32;
+            if (keys.shield) b1 |= 64;
+            if (keys.grab) b1 |= 128;
+            view.setUint8(1, b1);
+
+            var b2 = 0;
+            if (keys.triggerJump) b2 |= 1;
+            if (keys.triggerStartCharge) b2 |= 2;
+            if (keys.triggerReleaseAttack) b2 |= 4;
+            if (keys.triggerGrab) b2 |= 8;
+            view.setUint8(2, b2);
+
+            var atkMap = { 'NEUTRAL': 1, 'SIDE': 2, 'UP': 3, 'DOWN': 4 };
+            view.setUint8(3, atkMap[keys.attackType] || 0);
+            return buf;
+        };
+
+        window.SMA.unpackInput = function (buf) {
+            var view = new DataView(buf.buffer ? buf.buffer : buf);
+            var b1 = view.getUint8(1);
+            var b2 = view.getUint8(2);
+            var atkRMap = { 0: null, 1: 'NEUTRAL', 2: 'SIDE', 3: 'UP', 4: 'DOWN' };
+            var keys = {
+                up: (b1 & 1) !== 0,
+                down: (b1 & 2) !== 0,
+                left: (b1 & 4) !== 0,
+                right: (b1 & 8) !== 0,
+                jump: (b1 & 16) !== 0,
+                attack: (b1 & 32) !== 0,
+                shield: (b1 & 64) !== 0,
+                grab: (b1 & 128) !== 0,
+                triggerJump: (b2 & 1) !== 0,
+                triggerStartCharge: (b2 & 2) !== 0,
+                triggerReleaseAttack: (b2 & 4) !== 0,
+                triggerGrab: (b2 & 8) !== 0,
+                attackType: atkRMap[view.getUint8(3)]
+            };
+            return keys;
+        };
+
+
         // 2. VISUAL EFFECTS & AUDIO
         window.SMA.showNotification = function(text, duration) {
             var ovl = document.getElementById('notification-overlay');
@@ -501,7 +796,24 @@ function reportError(e) {
             window.SMA.connections.forEach(function(c) { if(c.conn.open) c.conn.send({type:'lobby', p1:window.SMA.localPlayerName, p2:p2?p2.name:null, p3:p3?p3.name:null, p4:p4?p4.name:null, specs:specs, ver:window.SMA.VERSION}); }); 
         };
         window.SMA.broadcast = function(msg) { window.SMA.connections.forEach(function(c) { if(c.conn.open) c.conn.send(msg); }); };
-        window.SMA.handleClient = function(d) { 
+        window.SMA.handleClient = async function(d) { 
+            if (typeof Blob !== 'undefined' && d instanceof Blob) {
+                try { 
+                    if (typeof d.arrayBuffer === 'function') { d = await d.arrayBuffer(); }
+                    else { d = await new Promise(function(resolve, reject) { var reader = new FileReader(); reader.onload = function() { resolve(reader.result); }; reader.onerror = reject; reader.readAsArrayBuffer(d); }); }
+                } catch(e) {}
+            }
+            if (d && (d.byteLength !== undefined || d.buffer !== undefined)) {
+                var view = new DataView(d.buffer ? d.buffer : d);
+                if (view.byteLength > 0 && view.getUint8(0) === window.SMA.BIN_TYPE_SYNC) {
+                    var pkt = window.SMA.unpackSync(d);
+                    if (pkt) {
+                        if(!window.SMA.gameRunning) { window.SMA.selectedStage = pkt.stg || 'battlefield'; window.SMA.bootGame(); }
+                        window.SMA.applySync(pkt);
+                    }
+                }
+                return;
+            }
             if(d.ver && d.ver !== window.SMA.VERSION) { document.getElementById('overlay-msg').innerText = "VERSION MISMATCH\nPLEASE RELOAD"; return; }
             if(d.type==='lobby') { 
                 window.SMA.lobbyState = { p1: d.p1, p2: d.p2, p3: d.p3, p4: d.p4 };
@@ -550,7 +862,37 @@ function reportError(e) {
                 window.SMA.startGameMulti(); 
             } 
             if(d.type==='sync') { if(!window.SMA.gameRunning) { window.SMA.selectedStage=d.stg||'battlefield'; window.SMA.bootGame(); } window.SMA.applySync(d); } };
-        window.SMA.handleConn = function(c) { c.on('data', function(d) { 
+        window.SMA.handleConn = function(c) { c.on('data', async function(d) { 
+            if (typeof Blob !== 'undefined' && d instanceof Blob) {
+                try { 
+                    if (typeof d.arrayBuffer === 'function') { d = await d.arrayBuffer(); }
+                    else { d = await new Promise(function(resolve, reject) { var reader = new FileReader(); reader.onload = function() { resolve(reader.result); }; reader.onerror = reject; reader.readAsArrayBuffer(d); }); }
+                } catch(e) {}
+            }
+            if (d && (d.byteLength !== undefined || d.buffer !== undefined)) {
+                var view = new DataView(d.buffer ? d.buffer : d);
+                if (view.byteLength > 0 && view.getUint8(0) === window.SMA.BIN_TYPE_INPUT && window.SMA.isHost) {
+                    var inputData = window.SMA.unpackInput(d);
+                    if (inputData) {
+                        var sender = window.SMA.connections.find(function(x){return x.conn===c;}); 
+                        if(sender && (sender.role==='p2' || sender.role==='p3' || sender.role==='p4')) { 
+                            var role = sender.role;
+                            window.SMA.remoteKeysMap[role] = inputData; 
+                            window.SMA.remoteLastInputTimeMap[role] = Date.now(); 
+                            if(inputData.triggerJump||inputData.triggerStartCharge||inputData.triggerReleaseAttack||inputData.triggerGrab) {
+                                if(!window.SMA.remoteEventsMap[role]) window.SMA.remoteEventsMap[role] = [];
+                                window.SMA.remoteEventsMap[role].push(inputData);
+                            }
+                            if(role === 'p2') {
+                                window.SMA.remoteKeys = inputData;
+                                window.SMA.remoteLastInputTime = Date.now();
+                                if(inputData.triggerJump||inputData.triggerStartCharge||inputData.triggerReleaseAttack||inputData.triggerGrab) window.SMA.remoteEvents.push(inputData);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
             if(d.ver && d.ver !== window.SMA.VERSION) { if(window.SMA.isHost) c.send({type:'error', msg:'VERSION MISMATCH'}); document.getElementById('overlay-msg').innerText = "VERSION MISMATCH\nP2 has diff ver"; return; }
             if(d.type==='handshake') { 
                 // プレイヤーロールの検索（再接続チェック含む）
@@ -885,11 +1227,12 @@ function reportError(e) {
                                 for (var si = 0; si < pc; si++) {
                                     pkt['p' + (si+1)] = allPlayers[si].serialize();
                                 }
-                                window.SMA.connections.forEach(function(c) { if(c.conn.open) try { c.conn.send({type:'sync', data:JSON.stringify(pkt)}); } catch(e){} }); window.SMA.syncEvents = []; 
+                                var binData = window.SMA.packSync(pkt);
+                                window.SMA.connections.forEach(function(c) { if(c.conn.open) try { c.conn.send(binData); } catch(e){} }); window.SMA.syncEvents = []; 
                             } 
                         } 
                     } else { 
-                        if(window.SMA.netConn && window.SMA.netConn.open) window.SMA.netConn.send({type:'input', keys:window.SMA.myKeys}); 
+                        if(window.SMA.netConn && window.SMA.netConn.open) window.SMA.netConn.send(window.SMA.packInput(window.SMA.myKeys)); 
                         window.SMA.players.forEach(function(p) { if (p && p.actionState !== 'DEAD') { p.animScale.x += (1.0 - p.animScale.x) * 0.2; p.animScale.y += (1.0 - p.animScale.y) * 0.2; if(p.actionState !== 'LEDGE_ROLL') p.rotation = 0; } }); 
                     } 
                 } 
@@ -3023,11 +3366,11 @@ function reportError(e) {
                             } 
                         } 
                     } 
-                    if(window.SMA.netConn&&window.SMA.netConn.open){ if(k==='jump')window.SMA.netConn.send({type:'input',keys:{...window.SMA.myKeys,triggerJump:true}}); if(k==='attack')window.SMA.netConn.send({type:'input',keys:{...window.SMA.myKeys,triggerStartCharge:true}}); if(k==='grab')window.SMA.netConn.send({type:'input',keys:{...window.SMA.myKeys,triggerGrab:true}}); } 
+                    if(window.SMA.netConn&&window.SMA.netConn.open){ if(k==='jump')window.SMA.netConn.send(window.SMA.packInput({...window.SMA.myKeys,triggerJump:true})); if(k==='attack')window.SMA.netConn.send(window.SMA.packInput({...window.SMA.myKeys,triggerStartCharge:true})); if(k==='grab')window.SMA.netConn.send(window.SMA.packInput({...window.SMA.myKeys,triggerGrab:true})); } 
                 }; 
                 var u=function(e){ 
                     if(window.SMA.isEditingLayout) return;
-                    try { if(e.cancelable) e.preventDefault(); } catch(err){} window.SMA.myKeys[k]=false; var type = 'NEUTRAL'; if (window.SMA.myKeys.up) type = 'UP'; else if (window.SMA.myKeys.down) type = 'DOWN'; else if (window.SMA.myKeys.left || window.SMA.myKeys.right) type = 'SIDE'; if(window.SMA.gameRunning && window.SMA.isHost && window.SMA.pOne) { if(k==='attack') window.SMA.pOne.releaseAttack(type); } if(k==='attack'&&window.SMA.netConn&&window.SMA.netConn.open)window.SMA.netConn.send({type:'input',keys:{...window.SMA.myKeys,triggerReleaseAttack:true, attackType: type}}); 
+                    try { if(e.cancelable) e.preventDefault(); } catch(err){} window.SMA.myKeys[k]=false; var type = 'NEUTRAL'; if (window.SMA.myKeys.up) type = 'UP'; else if (window.SMA.myKeys.down) type = 'DOWN'; else if (window.SMA.myKeys.left || window.SMA.myKeys.right) type = 'SIDE'; if(window.SMA.gameRunning && window.SMA.isHost && window.SMA.pOne) { if(k==='attack') window.SMA.pOne.releaseAttack(type); } if(k==='attack'&&window.SMA.netConn&&window.SMA.netConn.open)window.SMA.netConn.send(window.SMA.packInput({...window.SMA.myKeys,triggerReleaseAttack:true, attackType: type})); 
                 }; 
                 try { el.addEventListener('touchstart',d, {passive:false}); } catch(e){ el.addEventListener('touchstart',d); } 
                 try { el.addEventListener('touchend',u, {passive:false}); } catch(e){ el.addEventListener('touchend',u); } 
