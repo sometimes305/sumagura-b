@@ -58,7 +58,8 @@ function reportError(e) {
         window.SMA.hasJoined = false; 
 
         // Gravity SDK Bridge Utils
-        window.SMA.gravityRequests = {}; // コールバック管理用
+        window.SMA.gravityRequests = {}; 
+        window.SMA.gravityRoomRequests = {}; 
         window.SMA.callGravitySDK = function(action, params) {
             if (!window.SMA.isGravity) return Promise.reject("Not in Gravity environment");
             return new Promise(function(resolve, reject) {
@@ -72,13 +73,23 @@ function reportError(e) {
                 }, "*");
             });
         };
+        window.SMA.callGravityRoomSDK = function(action, params) {
+            if (!window.SMA.isGravity) return Promise.reject("Not in Gravity environment");
+            return new Promise(function(resolve, reject) {
+                var reqId = action + "_" + Date.now() + "_" + Math.floor(Math.random()*1000);
+                window.SMA.gravityRoomRequests[reqId] = { resolve: resolve, reject: reject };
+                var msg = { action: action, actionId: reqId };
+                if (params) Object.assign(msg, params);
+                window.parent.postMessage(msg, "*");
+            });
+        };
 
         // Message Listener for Gravity App / Platform
         window.addEventListener('message', function(event) {
             var data = event.data;
             if (!data || typeof data !== 'object') return;
 
-            // API Callback handling
+            // API Callback handling (Legacy)
             if (data.type === "API_CALLBACK" && data.requestId) {
                 var req = window.SMA.gravityRequests[data.requestId];
                 if (req) {
@@ -88,30 +99,110 @@ function reportError(e) {
                 }
             }
 
-            // Room message (Multiplayer)
-            if (data.type === "ROOM_MESSAGE" || data.action === "AgentSDK.room.onMessage") {
-                var payload = data.payload || data;
-                if (payload.message && typeof payload.message === 'string') {
+            // RoomSDK Bridge Response handling
+            if (data.type === 'gravityroomresponse' && data.actionId) {
+                var req2 = window.SMA.gravityRoomRequests[data.actionId];
+                if (req2) {
+                    req2.resolve(data.result);
+                    delete window.SMA.gravityRoomRequests[data.actionId];
+                }
+            }
+
+            // RoomSDK Bridge Event handling
+            if (data.type === 'gravityroomevent') {
+                var payload = data.payload || {};
+                if (payload.type === 'aitoolsgamejoinroom') {
+                    console.log("Joined: ", payload);
+                    window.SMA.showNotification((payload.data&&payload.data.user_name?payload.data.user_name:"プレイヤー")+"が入室しました", 2000);
+                } else if (payload.type === 'aitoolsgamesendmsg') {
                     try {
-                        var parsed = JSON.parse(payload.message);
-                        // Host-side input handling for Gravity
+                        var msgData = payload.data.msg_data;
+                        var parsed = (typeof msgData === 'string') ? JSON.parse(msgData) : msgData;
+                        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+
+                        // Route Handshake directly for Host
+                        if (parsed.type === 'handshake' && window.SMA.isHost) {
+                            var mockConn = { open: true, send: function(){} };
+                            var existingEntry = null;
+                            var assignedRole = null;
+                            if (parsed.role === 'join') {
+                                var roles = ['p2', 'p3', 'p4'];
+                                for (var ri = 0; ri < roles.length; ri++) {
+                                    var entry = window.SMA.connections.find(function(x){ return x.role === roles[ri]; });
+                                    if (entry && entry.name === parsed.name) {
+                                        existingEntry = entry; assignedRole = roles[ri]; break;
+                                    }
+                                }
+                            }
+                            if (existingEntry) {
+                                window.SMA.broadcast({ type:'assign_role', role: assignedRole, alignTo: parsed.name });
+                                window.SMA.showNotification(assignedRole.toUpperCase() + "が再接続しました", 2000);
+                            } else if (parsed.role === 'join') {
+                                var p2 = window.SMA.connections.find(function(x){ return x.role === 'p2'; });
+                                var p3 = window.SMA.connections.find(function(x){ return x.role === 'p3'; });
+                                var p4 = window.SMA.connections.find(function(x){ return x.role === 'p4'; });
+                                var newRole = null;
+                                if (!p2) newRole = 'p2'; else if (!p3) newRole = 'p3'; else if (!p4) newRole = 'p4';
+                                
+                                if (!newRole) {
+                                    window.SMA.broadcast({ type:'error', msg:'ROOM_FULL', alignTo: parsed.name });
+                                    return;
+                                }
+                                window.SMA.connections.push({conn:mockConn, role:newRole, name:parsed.name, icon:parsed.icon});
+                                window.SMA.broadcast({ type:'assign_role', role: newRole, alignTo: parsed.name });
+                                window.SMA.broadcastLobby();
+                                window.SMA.showNotification(newRole.toUpperCase() + "が入室しました！", 2000);
+                            } else if (parsed.role === 'spec') {
+                                window.SMA.connections.push({conn:mockConn, role:'spec', name:parsed.name}); 
+                                window.SMA.broadcastLobby(); 
+                            }
+                            return; 
+                        }
+
+                        // Host-side input handling
                         if (parsed.type === 'input' && window.SMA.isHost) {
-                            // Gravity環境ではとりあえず単一のリモートプレイヤー(p2)として扱うか、
-                            // payload.from (UID) があればそれを使ってマッピングする
-                            var role = parsed.role || 'p2'; 
+                            var role = parsed.senderRole || 'p2'; 
                             window.SMA.remoteKeysMap[role] = parsed.keys;
                             window.SMA.remoteLastInputTimeMap[role] = Date.now();
                             if (parsed.keys.triggerJump||parsed.keys.triggerStartCharge||parsed.keys.triggerReleaseAttack||parsed.keys.triggerGrab) {
                                 if(!window.SMA.remoteEventsMap[role]) window.SMA.remoteEventsMap[role] = [];
                                 window.SMA.remoteEventsMap[role].push(parsed.keys);
                             }
+                            // Legacy fallback p2
                             if (role === 'p2') {
                                 window.SMA.remoteKeys = parsed.keys;
                                 window.SMA.remoteLastInputTime = Date.now();
                                 if(parsed.keys.triggerJump) window.SMA.remoteEvents.push(parsed.keys);
                             }
                         } else {
+                            if (parsed.alignTo && parsed.alignTo !== window.SMA.localPlayerName) return; 
                             window.SMA.handleClient(parsed);
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            // Room message (Multiplayer Direct Legacy)
+            if (data.type === "ROOM_MESSAGE" || data.action === "AgentSDK.room.onMessage") {
+                var payloadLegacy = data.payload || data;
+                if (payloadLegacy.message && typeof payloadLegacy.message === 'string') {
+                    try {
+                        var parsedL = JSON.parse(payloadLegacy.message);
+                        if (parsedL.type === 'input' && window.SMA.isHost) {
+                            var roleL = parsedL.role || 'p2'; 
+                            window.SMA.remoteKeysMap[roleL] = parsedL.keys;
+                            window.SMA.remoteLastInputTimeMap[roleL] = Date.now();
+                            if (parsedL.keys.triggerJump||parsedL.keys.triggerStartCharge||parsedL.keys.triggerReleaseAttack||parsedL.keys.triggerGrab) {
+                                if(!window.SMA.remoteEventsMap[roleL]) window.SMA.remoteEventsMap[roleL] = [];
+                                window.SMA.remoteEventsMap[roleL].push(parsedL.keys);
+                            }
+                            if (roleL === 'p2') {
+                                window.SMA.remoteKeys = parsedL.keys;
+                                window.SMA.remoteLastInputTime = Date.now();
+                                if(parsedL.keys.triggerJump) window.SMA.remoteEvents.push(parsedL.keys);
+                            }
+                        } else {
+                            window.SMA.handleClient(parsedL);
                         }
                     } catch(e) {}
                 }
@@ -126,6 +217,8 @@ function reportError(e) {
                 var urlParams = new URLSearchParams(window.location.search);
                 var urlName = urlParams.get('username');
                 var urlIcon = urlParams.get('portrait') || urlParams.get('avatar');
+                var autoRoomId = urlParams.get('room_id') || urlParams.get('roomid');
+                if (autoRoomId) window.SMA.gravityAutoJoinRoom = autoRoomId;
                 
                 if (urlName) {
                     window.SMA.localPlayerName = urlName;
@@ -251,7 +344,6 @@ function reportError(e) {
             window.SMA.startSolo(); // Now calls actual starter
         };
 
-        // --- ONLINE FUNCTIONS RESTORED (v406 Fix) ---
         window.SMA.showCreateRoom = function() { 
             window.SMA.saveSettings(); 
             window.SMA.myRole='host'; 
@@ -270,7 +362,63 @@ function reportError(e) {
         });
         } catch(e) { reportError("Peer Init Error: " + e); } };
 
+        window.SMA.showGravityCreateRoom = async function() { 
+            window.SMA.saveSettings(); 
+            window.SMA.myRole = 'host'; 
+            window.SMA.connections = []; 
+            window.SMA.localPlayerName = document.getElementById('username').value || "Host"; 
+            window.SMA.isHost = true; window.SMA.isOnline = true; 
+            document.getElementById('menu-screen').classList.add('hidden'); 
+            document.getElementById('online-menu-screen').classList.add('hidden'); 
+            document.getElementById('create-room-screen').classList.remove('hidden'); 
+            document.getElementById('room-id-display').innerText = "生成中..."; 
+            document.getElementById('slot-p1').innerText = "1P: "+window.SMA.localPlayerName;
+
+            try {
+                var res = await window.SMA.callGravityRoomSDK('create_room', { maxplayers: 2, permission: 0 }); // Note: Local AI param is maxplayers and permission
+                var roomData = res.data || res;
+                window.SMA.gravityRoomId = (roomData && (roomData.room_id || roomData.roomId)) || "0000";
+                document.getElementById('room-id-display').innerText = window.SMA.gravityRoomId;
+                window.SMA.showNotification("部屋を作成しました", 2000);
+            } catch(e) { reportError("Gravity Room Create Error: "+e); }
+        };
+
         window.SMA.showJoinRoom = function() { window.SMA.saveSettings(); document.getElementById('menu-screen').classList.add('hidden'); document.getElementById('online-menu-screen').classList.add('hidden'); document.getElementById('join-room-screen').classList.remove('hidden'); };
+
+        window.SMA.showGravityJoinRoom = function(roomIdParam) {
+            window.SMA.saveSettings(); 
+            document.getElementById('menu-screen').classList.add('hidden'); 
+            document.getElementById('online-menu-screen').classList.add('hidden'); 
+            document.getElementById('join-room-screen').classList.remove('hidden'); 
+
+            var rid = roomIdParam || document.getElementById('join-input').value; 
+            if(!rid) return; 
+            
+            window.SMA.localPlayerName = document.getElementById('username').value || "Guest"; 
+            window.SMA.isHost = false; window.SMA.isOnline = true; 
+            window.SMA.setJoinLoading(true);
+
+            window.SMA.callGravityRoomSDK('join_room', { roomid: rid })
+                .then(function(res) {
+                    window.SMA.gravityRoomId = rid;
+                    window.SMA.setJoinLoading(false);
+                    // Mock netConn for Gravity guest
+                    window.SMA.netConn = {
+                        open: true,
+                        send: function(msg) {
+                            msg.senderRole = window.SMA.myRole;
+                            window.SMA.broadcast(msg);
+                        }
+                    };
+                    window.SMA.showNotification("部屋に入室しました", 2000);
+                    // Handshake trigger
+                    window.SMA.broadcast({type:'handshake', role:'join', name:window.SMA.localPlayerName, icon:window.SMA.localPlayerIcon, ver:window.SMA.VERSION});
+                })
+                .catch(function(e) {
+                    window.SMA.showNotification("入室エラー", 2000);
+                    window.SMA.setJoinLoading(false);
+                });
+        };
 
         window.SMA.joinRoom = function(role) { 
             if(window.SMA.netPeer) { try { window.SMA.netPeer.destroy(); } catch(e){} window.SMA.netPeer=null; } 
@@ -3067,13 +3215,20 @@ function reportError(e) {
             bindBtn('btn-save-layout', saveConfig);
             bindBtn('btn-reset-layout', resetLayout);
             
-            bindBtn('btn-solo', window.SMA.enterSoloMode); // FIXED: SSS first
-            bindBtn('btn-online', function() { document.getElementById('menu-screen').classList.add('hidden'); document.getElementById('online-menu-screen').classList.remove('hidden'); });
+            bindBtn('btn-solo', window.SMA.enterSoloMode); 
+            bindBtn('btn-online', function() { 
+                document.getElementById('menu-screen').classList.add('hidden'); 
+                document.getElementById('online-menu-screen').classList.remove('hidden'); 
+                if (window.SMA.isGravity && window.SMA.gravityAutoJoinRoom) {
+                    window.SMA.startAudioContext();
+                    window.SMA.showGravityJoinRoom(window.SMA.gravityAutoJoinRoom);
+                }
+            });
             bindBtn('btn-online-back', function() { document.getElementById('online-menu-screen').classList.add('hidden'); document.getElementById('menu-screen').classList.remove('hidden'); });
-            bindBtn('btn-create', function() { window.SMA.startAudioContext(); window.SMA.showCreateRoom(); });
+            bindBtn('btn-create', function() { window.SMA.startAudioContext(); if(window.SMA.isGravity) window.SMA.showGravityCreateRoom(); else window.SMA.showCreateRoom(); });
             bindBtn('btn-join', function() { window.SMA.startAudioContext(); window.SMA.showJoinRoom(); });
-            bindBtn('btn-join-action', function() { window.SMA.joinRoom('join'); });
-            bindBtn('btn-spec-action', function() { window.SMA.joinRoom('spec'); });
+            bindBtn('btn-join-action', function() { if(window.SMA.isGravity) window.SMA.showGravityJoinRoom(); else window.SMA.joinRoom('join'); });
+            bindBtn('btn-spec-action', function() { if(window.SMA.isGravity) window.SMA.showNotification("観戦未対応",1000); else window.SMA.joinRoom('spec'); });
             bindBtn('btn-join-cancel', function() { location.reload(); });
             bindBtn('btn-title', function() { location.reload(); });
             bindBtn('btn-goto-css', function() { window.SMA.hostGoToCSS(); });
