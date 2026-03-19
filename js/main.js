@@ -64,7 +64,7 @@ function reportError(e) {
             return new Promise(function(resolve, reject) {
                 var reqId = "req_" + Date.now() + "_" + Math.floor(Math.random()*1000);
                 window.SMA.gravityRequests[reqId] = { resolve: resolve, reject: reject };
-                window.parent.postMessage({
+                window.top.postMessage({
                     type: "API",
                     action: action,
                     requestId: reqId,
@@ -131,7 +131,11 @@ function reportError(e) {
                         if (p1Icon) { p1Icon.src = user.portrait; p1Icon.style.display = 'block'; }
                     }
                     var nameInput = document.getElementById('username');
-                    if (nameInput) nameInput.value = user.name;
+                    if (nameInput) { 
+                        nameInput.value = user.name;
+                        nameInput.disabled = true; 
+                    }
+                    if (typeof window.SMA.saveSettings === 'function') window.SMA.saveSettings();
                     console.log("Gravity User Loaded:", user.name);
                 }
             } catch (e) {
@@ -609,7 +613,7 @@ function reportError(e) {
             // Gravity経由のブロードキャスト
             if (window.SMA.isGravity) {
                 var jsonMsg = (typeof msg === 'string') ? msg : JSON.stringify(msg);
-                window.parent.postMessage({
+                window.top.postMessage({
                     type: "API",
                     action: "AgentSDK.room.sendMessage",
                     params: { message: jsonMsg }
