@@ -2923,6 +2923,9 @@ function reportError(e) {
                 } catch(e){}
             };
             window.SMA.loadSettings();
+            
+            // Gravity環境の場合はユーザー情報取得を開始
+            window.SMA.initGravity();
 
             var bindBtn = function(id, func) {
                 var btn = g(id);
