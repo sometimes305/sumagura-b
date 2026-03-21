@@ -387,9 +387,11 @@ function reportError(e) {
             }
 
             try {
-                // Keep create_room as action, but update params while retaining legacy params for safety
-                // Set room_permission: 0 (Public) instead of 1 (Private)
-                var res = await window.SMA.callGravityRoomSDK('create_room', { room_type: 'aitools_game_room', max_players: 2, maxplayers: 2, room_permission: 0, permission: 0 }); 
+                // room_permission: SDKリファレンスでは 1=公開, 2=非公開
+                var createParams = { room_type: 'aitools_game_room', max_players: 2, maxplayers: 2, room_permission: 1, permission: 1 };
+                console.log("[SMA] create_room params:", JSON.stringify(createParams));
+                var res = await window.SMA.callGravityRoomSDK('create_room', createParams); 
+                console.log("[SMA] create_room response:", JSON.stringify(res));
                 var roomData = res.data || res;
                 window.SMA.gravityRoomId = (roomData && (roomData.room_id || roomData.roomId)) || "0000";
                 document.getElementById('room-id-display').innerText = window.SMA.gravityRoomId.slice(-5);
@@ -415,13 +417,18 @@ function reportError(e) {
             }
 
             try {
-                // Update to get_public_rooms for new loader
                 var res = await window.SMA.callGravityRoomSDK('get_public_rooms', { room_type: 'aitools_game_room', page_num: 1, page_size: 20 });
-                var rooms = res.data || res.rooms || res.list || [];
-                if (!Array.isArray(rooms)) {
-                    if (res && Array.isArray(res)) rooms = res;
-                    else rooms = [];
+                console.log("[SMA] fetchRoomList raw response:", JSON.stringify(res));
+                // SDKの返却形式を複数パターンで対応
+                var rooms = [];
+                if (res) {
+                    if (res.data && res.data.list) rooms = res.data.list;
+                    else if (res.data && Array.isArray(res.data)) rooms = res.data;
+                    else if (res.list) rooms = res.list;
+                    else if (res.rooms) rooms = res.rooms;
+                    else if (Array.isArray(res)) rooms = res;
                 }
+                console.log("[SMA] Parsed room list (" + rooms.length + "):", JSON.stringify(rooms));
                 
                 if (rooms.length === 0) {
                     container.innerHTML = '<div class="room-list-empty">現在公開中のルームはありません。</div>';
@@ -470,36 +477,52 @@ function reportError(e) {
             window.SMA.setJoinLoading(true);
 
             // ================= SHORT ID SEARCH LOGIC =================
-            // If the entered ID is short, search public rooms for a match
+            // 入力が短い場合、公開ルーム一覧から末尾一致で検索
             if (rid.length > 0 && rid.length <= 10) {
                 window.SMA.showNotification("部屋を検索中...", 2000);
                 try {
                     var foundFullId = null;
-                    // Scan up to 3 pages
+                    // 最大3ページ検索
                     for (var p = 1; p <= 3; p++) {
                         var resSearch = await window.SMA.callGravityRoomSDK('get_public_rooms', { room_type: 'aitools_game_room', page_num: p, page_size: 20 });
-                        var roomsData = resSearch.data || resSearch.rooms || resSearch.list || [];
-                        if (!Array.isArray(roomsData) && resSearch && Array.isArray(resSearch)) roomsData = resSearch;
+                        console.log("[SMA] get_public_rooms page " + p + " raw response:", JSON.stringify(resSearch));
                         
-                        var matchedRoom = roomsData.find(function(r) {
-                            var idString = String(r.room_id || r.roomId || "");
-                            return idString.endsWith(rid);
-                        });
-                        if (matchedRoom) {
-                            foundFullId = matchedRoom.room_id || matchedRoom.roomId;
-                            break;
+                        // SDKの返却形式を複数パターンで対応
+                        var roomsData = [];
+                        if (resSearch) {
+                            if (resSearch.data && resSearch.data.list) roomsData = resSearch.data.list;
+                            else if (resSearch.data && Array.isArray(resSearch.data)) roomsData = resSearch.data;
+                            else if (resSearch.list) roomsData = resSearch.list;
+                            else if (resSearch.rooms) roomsData = resSearch.rooms;
+                            else if (Array.isArray(resSearch)) roomsData = resSearch;
                         }
-                        if (roomsData.length < 20) break; // no more pages
+                        console.log("[SMA] Parsed rooms ("+roomsData.length+"):", JSON.stringify(roomsData));
+                        
+                        for (var ri = 0; ri < roomsData.length; ri++) {
+                            var r = roomsData[ri];
+                            var idString = String(r.room_id || r.roomId || r.id || "");
+                            console.log("[SMA] Checking room: " + idString + " endsWith " + rid + " = " + idString.endsWith(rid));
+                            if (idString.endsWith(rid)) {
+                                foundFullId = idString;
+                                break;
+                            }
+                        }
+                        if (foundFullId) break;
+                        if (roomsData.length < 20) break; // 次ページなし
                     }
                     if (foundFullId) {
                         rid = foundFullId;
+                        console.log("[SMA] Found full room ID:", rid);
                     } else {
                         window.SMA.setJoinLoading(false);
                         window.SMA.showNotification("指定された番号の部屋が見つかりません", 3000);
                         return;
                     }
                 } catch (e) {
-                    console.error("Search Error", e);
+                    console.error("[SMA] Search Error:", e);
+                    window.SMA.setJoinLoading(false);
+                    window.SMA.showNotification("検索エラー: " + e, 3000);
+                    return; // 検索失敗時は確実に停止
                 }
             }
             // =========================================================
