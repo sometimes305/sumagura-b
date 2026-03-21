@@ -392,7 +392,7 @@ function reportError(e) {
                 var res = await window.SMA.callGravityRoomSDK('create_room', { room_type: 'aitools_game_room', max_players: 2, maxplayers: 2, room_permission: 0, permission: 0 }); 
                 var roomData = res.data || res;
                 window.SMA.gravityRoomId = (roomData && (roomData.room_id || roomData.roomId)) || "0000";
-                document.getElementById('room-id-display').innerText = window.SMA.gravityRoomId;
+                document.getElementById('room-id-display').innerText = window.SMA.gravityRoomId.slice(-5);
                 window.SMA.showNotification("部屋を作成しました", 2000);
             } catch(e) { reportError("Gravity Room Create Error: "+e); }
         };
@@ -513,7 +513,7 @@ function reportError(e) {
                     // Transition to unified lobby screen
                     document.getElementById('join-room-screen').classList.add('hidden');
                     document.getElementById('create-room-screen').classList.remove('hidden');
-                    document.getElementById('room-id-display').innerText = rid;
+                    document.getElementById('room-id-display').innerText = rid.slice(-5);
                     
                     // Guest UI adjustments
                     var sssBtn = document.getElementById('btn-goto-sss');
@@ -942,15 +942,10 @@ function reportError(e) {
             // Gravity経由のブロードキャスト
             if (window.SMA.isGravity) {
                 var jsonMsg = (typeof msg === 'string') ? msg : JSON.stringify(msg);
-                // The wrapper listens on window.parent inside its message event.
-                // It expects 'AgentSDK.room.sendMessage' or 'sendMessage' action.
+                // callGravityRoomSDKと同じプロトコルで送信（レスポンスは無視）
                 window.parent.postMessage({
-                    action: "AgentSDK.room.sendMessage",
-                    message: jsonMsg
-                }, "*");
-                // Fallback for loaders that expect send_message
-                window.parent.postMessage({
-                    action: "send_message",
+                    action: 'send_message',
+                    actionId: 'broadcast_' + Date.now(),
                     message: jsonMsg
                 }, "*");
             }
