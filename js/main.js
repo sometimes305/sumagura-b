@@ -406,8 +406,8 @@ function reportError(e) {
             }
 
             try {
-                // Update to getPublicRoomList params based on SDK reference
-                var res = await window.SMA.callGravityRoomSDK('getPublicRoomList', { room_type: 'aitools_game_room', page_num: 1, page_size: 20 });
+                // Update to get_public_rooms for new loader
+                var res = await window.SMA.callGravityRoomSDK('get_public_rooms', { room_type: 'aitools_game_room', page_num: 1, page_size: 20 });
                 var rooms = res.data || res.rooms || res.list || [];
                 if (!Array.isArray(rooms)) {
                     if (res && Array.isArray(res)) rooms = res;
@@ -3346,6 +3346,33 @@ function reportError(e) {
             bindBtn('btn-room-list', function() { window.SMA.startAudioContext(); window.SMA.showRoomList(); });
             bindBtn('btn-room-list-back', function() { document.getElementById('room-list-screen').classList.add('hidden'); document.getElementById('online-menu-screen').classList.remove('hidden'); });
             bindBtn('btn-refresh-rooms', function() { window.SMA.startAudioContext(); window.SMA.fetchRoomList(); });
+            
+            // Add copy Room ID button logic
+            var btnCopy = document.getElementById('btn-copy-room-id');
+            if (btnCopy) {
+                btnCopy.addEventListener('click', function() {
+                    var rid = window.SMA.gravityRoomId;
+                    if (rid && navigator.clipboard) {
+                        navigator.clipboard.writeText(rid).then(() => {
+                            window.SMA.showNotification("部屋IDをコピーしました！", 2000);
+                        }).catch(err => {
+                            console.error("Copy failed", err);
+                        });
+                    } else if (rid) {
+                        // Fallback for older browsers
+                        var textArea = document.createElement("textarea");
+                        textArea.value = rid;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        try {
+                            document.execCommand('copy');
+                            window.SMA.showNotification("部屋IDをコピーしました！", 2000);
+                        } catch (err) { }
+                        document.body.removeChild(textArea);
+                    }
+                });
+            }
+
             bindBtn('btn-create', function() { window.SMA.startAudioContext(); if(window.SMA.isGravity) window.SMA.showGravityCreateRoom(); else window.SMA.showCreateRoom(); });
             bindBtn('btn-join', function() { window.SMA.startAudioContext(); window.SMA.showJoinRoom(); });
             bindBtn('btn-join-action', function() { if(window.SMA.isGravity) window.SMA.showGravityJoinRoom(); else window.SMA.joinRoom('join'); });

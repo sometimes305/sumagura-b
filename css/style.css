@@ -54,14 +54,19 @@ body { margin: 0; padding: 0; padding-bottom: env(safe-area-inset-bottom); backg
         /* Buttons are YELLOW */
         .menu-btn { background: #f1c40f; border: 2px solid #f39c12; padding: 12px 0; width: 280px; margin: 8px 0; color: #2d3436; font-size: 18px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.1s; text-align: center; flex-shrink: 0; z-index: 210; position:relative; }
         .menu-btn:active, .menu-btn.pressed { transform: scale(0.95); background: #f39c12; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+
         .menu-btn.primary { background: #d63031; border-color: #ff7675; color: white; }
         .menu-btn.disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); cursor: default; }
         .menu-btn.sound-off { background: #636e72; border-color: #b2bec3; color: #b2bec3; }
 
         input[type="text"], input[type="number"] { padding: 10px; font-size: 24px; border-radius: 10px; border: 2px solid #fff; margin-bottom: 20px; text-align: center; width: 250px; background: #333; color: white; flex-shrink: 0; }
         
-        #room-id-display { font-size: 64px; color: #55efc4; font-weight: bold; margin: 20px 0; padding: 10px 40px; border: 4px dashed #55efc4; background: rgba(0,0,0,0.5); letter-spacing: 10px; }
-        
+        .room-id-container { display: flex; align-items: stretch; justify-content: center; gap: 10px; margin: 20px 0; }
+        #room-id-display { font-size: 32px; color: #55efc4; font-weight: bold; padding: 10px 20px; border: 4px dashed #55efc4; background: rgba(0,0,0,0.5); letter-spacing: 3px; margin: 0; display: flex; align-items: center; justify-content: center; }
+        .copy-btn { background: #34495e; color: #fff; border: 2px solid #2c3e50; border-radius: 8px; padding: 0 20px; font-size: 16px; cursor: pointer; transition: 0.2s; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .copy-btn:hover { background: #2c3e50; border-color: #55efc4; color: #55efc4; }
+        .copy-btn:active { transform: scale(0.95); }
+
         .stage-card { width: 200px; height: 120px; background: #444; border: 3px solid #777; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; position: relative; margin: 10px; }
         .stage-card.selected { border-color: #ffd700; box-shadow: 0 0 15px #ffd700; background: #555; }
         .stage-card .stage-name { font-weight: bold; font-size: 18px; margin-top: 5px; }
