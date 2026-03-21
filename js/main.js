@@ -990,7 +990,7 @@ function reportError(e) {
             // Gravity経由のブロードキャスト
             if (window.SMA.isGravity) {
                 var jsonMsg = (typeof msg === 'string') ? msg : JSON.stringify(msg);
-                // callGravityRoomSDKと同じプロトコルで送信（レスポンスは無視）
+                console.log("[SMA] BROADCAST sending:", msg.type || "(raw)", jsonMsg.substring(0, 200));
                 window.parent.postMessage({
                     action: 'send_message',
                     actionId: 'broadcast_' + Date.now(),
