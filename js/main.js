@@ -104,7 +104,14 @@ function reportError(e) {
             if ((data.type === 'gravityroomresponse' || data.type === 'gravity_room_response') && responseId) {
                 var req2 = window.SMA.gravityRoomRequests[responseId];
                 if (req2) {
-                    req2.resolve(data.result);
+                    var resData = data.result || {};
+                    console.log("[SMA] Response for " + responseId + ":", JSON.stringify(resData));
+                    // Check for SDK-level errors
+                    if (resData.errno !== undefined && resData.errno !== 0) {
+                        req2.reject("SDK Error (errno:" + resData.errno + "): " + (resData.errmsg || "Unknown"));
+                    } else {
+                        req2.resolve(resData);
+                    }
                     delete window.SMA.gravityRoomRequests[responseId];
                 }
             }
@@ -112,6 +119,7 @@ function reportError(e) {
             // RoomSDK Bridge Event handling
             if (data.type === 'gravityroomevent' || data.type === 'gravity_room_event') {
                 var payload = data.payload || {};
+                console.log("[SMA] Received Event:", JSON.stringify(payload));
                 var pType = payload.type;
                 if (pType === 'aitools_game_joinroom' || pType === 'aitoolsgamejoinroom') {
                     console.log("Joined: ", payload);
@@ -387,16 +395,19 @@ function reportError(e) {
             }
 
             try {
-                // room_permission: SDKリファレンスでは 1=公開, 2=非公開
-                var createParams = { room_type: 'aitools_game_room', max_players: 2, maxplayers: 2, room_permission: 1, permission: 1 };
+                // room_permission: 0=公開, 1=非公開 (ローダー側のロジックと合わせる)
+                var createParams = { room_type: 'aitools_game_room', max_players: 2, maxplayers: 2, room_permission: 0, permission: 0 };
                 console.log("[SMA] create_room params:", JSON.stringify(createParams));
                 var res = await window.SMA.callGravityRoomSDK('create_room', createParams); 
-                console.log("[SMA] create_room response:", JSON.stringify(res));
+                console.log("[SMA] create_room success response:", JSON.stringify(res));
                 var roomData = res.data || res;
                 window.SMA.gravityRoomId = (roomData && (roomData.room_id || roomData.roomId)) || "0000";
                 document.getElementById('room-id-display').innerText = window.SMA.gravityRoomId.slice(-5);
                 window.SMA.showNotification("部屋を作成しました", 2000);
-            } catch(e) { reportError("Gravity Room Create Error: "+e); }
+            } catch(e) { 
+                console.error("[SMA] Create Error:", e);
+                reportError("部屋作成に失敗しました: " + e); 
+            }
         };
 
         window.SMA.showRoomList = function() {
