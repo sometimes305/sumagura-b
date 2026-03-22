@@ -902,8 +902,11 @@ function reportError(e) {
             if(window.SMA.connections.find(c => c.role === 'p4')) activeRoles.push('p4');
 
             var allReady = activeRoles.every(r => window.SMA.hubData[r] && window.SMA.hubData[r].ready);
-            if(allReady && activeRoles.length > 1) { 
-                window.SMA.executeHubFinalStart(activeRoles);
+            var btnStart = document.getElementById('btn-hub-start');
+            if(allReady) { 
+                if(btnStart) btnStart.style.display = 'block';
+            } else {
+                if(btnStart) btnStart.style.display = 'none';
             }
         };
 
@@ -963,6 +966,8 @@ function reportError(e) {
             if(defChar) defChar.classList.add('selected');
             var btn = document.getElementById('btn-hub-ready');
             if(btn) { btn.innerText = "準備完了！"; btn.style.background = ""; btn.style.borderColor = ""; }
+            var btnSt = document.getElementById('btn-hub-start');
+            if(btnSt) btnSt.style.display = 'none';
         };
 
         window.SMA.startSoloGame = function() { 
@@ -3614,6 +3619,14 @@ function reportError(e) {
             bindChar('card-mirror', 'mirror');
 
             // BATTLE HUB BUTTONS
+            bindBtn('btn-hub-start', function() { 
+                if(!window.SMA.isHost) return;
+                var activeRoles = ['p1'];
+                if(window.SMA.connections.find(c => c.role === 'p2')) activeRoles.push('p2');
+                if(window.SMA.connections.find(c => c.role === 'p3')) activeRoles.push('p3');
+                if(window.SMA.connections.find(c => c.role === 'p4')) activeRoles.push('p4');
+                window.SMA.executeHubFinalStart(activeRoles); 
+            });
             bindBtn('btn-hub-ready', function() { window.SMA.toggleHubReady(); });
             bindBtn('btn-hub-back', function() { location.reload(); });
 

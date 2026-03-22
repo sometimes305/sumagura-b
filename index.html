@@ -219,6 +219,7 @@
             <!-- 下部: アクションバー -->
             <div class="bottom-action-bar" id="hub-action-bar" style="display:none;">
                 <button id="btn-hub-back" class="menu-btn small">← 終了する</button>
+                <button id="btn-hub-start" class="menu-btn p2-color" style="width:200px; margin:0; display:none; animation: pulse 1s infinite alternate;">試合開始！</button>
                 <button id="btn-hub-ready" class="menu-btn accent" style="width:200px; margin:0;">準備完了！</button>
             </div>
         </div>
@@ -244,6 +245,8 @@
     </div>
 
     <!-- メインスクリプト -->
-    <script src="js/main.js?v=432"></script>
+    <script>
+        document.write('<script src="js/main.js?v=' + new Date().getTime() + '"><\\/script>');
+    </script>
 </body>
 </html>
