@@ -228,7 +228,8 @@ function reportError(e) {
             try {
                 var urlParams = new URLSearchParams(window.location.search);
                 var urlName = urlParams.get('username');
-                var urlIcon = urlParams.get('portrait') || urlParams.get('avatar') || urlParams.get('icon') || urlParams.get('head_img') || urlParams.get('headimgurl');
+                var rawIcon = urlParams.get('portrait') || urlParams.get('avatar') || urlParams.get('icon') || urlParams.get('head_img') || urlParams.get('headimgurl');
+                var urlIcon = rawIcon ? decodeURIComponent(rawIcon) : null;
                 var autoRoomId = urlParams.get('room_id') || urlParams.get('roomid');
                 if (autoRoomId) window.SMA.gravityAutoJoinRoom = autoRoomId;
                 
