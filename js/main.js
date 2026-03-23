@@ -996,10 +996,10 @@ function reportError(e) {
             var el3 = document.getElementById('p3-name'); if(el3) el3.innerText = s.p3 || "3P";
             var el4 = document.getElementById('p4-name'); if(el4) el4.innerText = s.p4 || "4P";
 
-            var icon1 = document.getElementById('p1-icon'); if(icon1 && s.p1Icon) { icon1.src = s.p1Icon; icon1.style.display = 'block'; }
-            var icon2 = document.getElementById('p2-icon'); if(icon2 && s.p2Icon) { icon2.src = s.p2Icon; icon2.style.display = 'block'; }
-            var icon3 = document.getElementById('p3-icon'); if(icon3 && s.p3Icon) { icon3.src = s.p3Icon; icon3.style.display = 'block'; }
-            var icon4 = document.getElementById('p4-icon'); if(icon4 && s.p4Icon) { icon4.src = s.p4Icon; icon4.style.display = 'block'; }
+            // ゲーム中の大きなアイコンは非表示にする（邪魔なため）
+            ['p1-icon','p2-icon','p3-icon','p4-icon'].forEach(function(id) {
+                var el = document.getElementById(id); if(el) el.style.display = 'none';
+            });
 
             window.SMA.bootGame(); 
         };
